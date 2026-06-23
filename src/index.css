@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   TOKENS DE THÈME — le seul endroit à modifier pour rhabiller
+   l'app aux couleurs d'un autre traiteur (cf. règle data-driven).
+   Base sobre proposée pour J&J : fond crème, accents profonds.
+   À valider / remplacer par la charte J&J à l'étape 5.
+   ============================================================ */
+:root {
+  /* Couleurs */
+  --color-cream: #faf6ef;        /* fond général, chaleureux */
+  --color-surface: #ffffff;      /* cartes, panneaux */
+  --color-ink: #2b2521;          /* texte principal, profond */
+  --color-muted: #8a7f74;        /* texte secondaire */
+  --color-accent: #8c6a3f;       /* accent profond (bronze/or) */
+  --color-accent-dark: #6e5230;  /* accent au survol */
+  --color-line: #e8ded0;         /* filets, bordures discrètes */
+
+  /* Typographies */
+  --font-display: Georgia, 'Times New Roman', serif;   /* titres, éditorial */
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Formes */
+  --radius-card: 14px;
+
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink outline-none;
+    @apply placeholder:text-muted focus:border-accent;
+  }
+}
