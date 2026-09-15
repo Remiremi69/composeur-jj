@@ -20,20 +20,26 @@ export interface CoupleInfo {
 
 interface PersistedState {
   couple: CoupleInfo | null
+  formuleId: string | null
   selections: Selections
+  optionIds: string[]
 }
 
 interface CompositionContextValue {
   couple: CoupleInfo | null
   setCouple: (couple: CoupleInfo) => void
+  formuleId: string | null
+  setFormule: (formuleId: string) => void
   selections: Selections
   toggleItem: (step: Step, stepItems: Item[], item: Item) => void
   setQuantity: (itemId: string, qty: number) => void
   removeItem: (itemId: string) => void
+  optionIds: string[]
+  toggleOption: (optionId: string) => void
   reset: () => void
 }
 
-const STORAGE_KEY = 'composeur:v1'
+const STORAGE_KEY = 'composeur:v3'
 
 const CompositionContext = createContext<CompositionContextValue | null>(null)
 
@@ -44,25 +50,35 @@ function loadInitial(): PersistedState {
   } catch {
     // localStorage indisponible ou JSON invalide : on repart à vide.
   }
-  return { couple: null, selections: {} }
+  return { couple: null, formuleId: null, selections: {}, optionIds: [] }
 }
 
 export function CompositionProvider({ children }: { children: ReactNode }) {
   const initial = loadInitial()
   const [couple, setCoupleState] = useState<CoupleInfo | null>(initial.couple)
+  const [formuleId, setFormuleState] = useState<string | null>(initial.formuleId)
   const [selections, setSelections] = useState<Selections>(initial.selections)
+  const [optionIds, setOptionIds] = useState<string[]>(initial.optionIds ?? [])
 
   // Persistance navigateur : un rafraîchissement ne perd rien.
   useEffect(() => {
-    const state: PersistedState = { couple, selections }
+    const state: PersistedState = { couple, formuleId, selections, optionIds }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     } catch {
       // ignore (mode privé, quota…)
     }
-  }, [couple, selections])
+  }, [couple, formuleId, selections, optionIds])
 
   const setCouple = useCallback((next: CoupleInfo) => setCoupleState(next), [])
+
+  const setFormule = useCallback((id: string) => setFormuleState(id), [])
+
+  const toggleOption = useCallback((optionId: string) => {
+    setOptionIds((prev) =>
+      prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId],
+    )
+  }, [])
 
   const toggleItem = useCallback(
     (step: Step, stepItems: Item[], item: Item) => {
@@ -90,7 +106,9 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => {
     setCoupleState(null)
+    setFormuleState(null)
     setSelections({})
+    setOptionIds([])
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch {
@@ -99,8 +117,32 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<CompositionContextValue>(
-    () => ({ couple, setCouple, selections, toggleItem, setQuantity, removeItem, reset }),
-    [couple, setCouple, selections, toggleItem, setQuantity, removeItem, reset],
+    () => ({
+      couple,
+      setCouple,
+      formuleId,
+      setFormule,
+      selections,
+      toggleItem,
+      setQuantity,
+      removeItem,
+      optionIds,
+      toggleOption,
+      reset,
+    }),
+    [
+      couple,
+      setCouple,
+      formuleId,
+      setFormule,
+      selections,
+      toggleItem,
+      setQuantity,
+      removeItem,
+      optionIds,
+      toggleOption,
+      reset,
+    ],
   )
 
   return <CompositionContext.Provider value={value}>{children}</CompositionContext.Provider>

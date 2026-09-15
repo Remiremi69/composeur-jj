@@ -31,6 +31,16 @@ export default function ConfirmationPage() {
           et confirmer votre devis.
         </p>
 
+        <div className="mt-8 rounded-card border border-line bg-surface p-6 text-left">
+          <p className="text-xs uppercase tracking-[0.2em] text-accent">Prochaine étape</p>
+          <h2 className="mt-1 font-display text-xl text-ink">La dégustation</h2>
+          <p className="mt-2 text-sm text-muted">
+            Venez déguster votre grand soir en avant-première : nous reproduisons votre
+            menu à l'identique. <span className="text-ink">40 € par personne</span>, déduits
+            de votre facture si vous confirmez votre mariage avec nous.
+          </p>
+        </div>
+
         <button
           type="button"
           onClick={startOver}

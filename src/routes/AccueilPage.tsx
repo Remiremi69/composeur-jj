@@ -32,7 +32,7 @@ export default function AccueilPage() {
       weddingDate,
       guestCount: guests,
     })
-    navigate('/composer')
+    navigate('/formule')
   }
 
   return (
@@ -96,11 +96,33 @@ export default function AccueilPage() {
 
           <button
             type="submit"
-            className="mt-2 rounded-full bg-accent px-6 py-3.5 font-semibold text-cream transition-colors hover:bg-accent-dark"
+            className="mt-2 rounded-full bg-accent px-6 py-3.5 font-semibold text-cream shadow-[0_10px_24px_-10px_rgba(140,106,63,0.65)] transition-colors hover:bg-accent-dark"
           >
             Composer notre menu
           </button>
         </form>
+
+        <div className="mt-10 border-t border-line pt-8">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Comment ça marche</h2>
+          <ol className="mt-4 flex flex-col gap-4">
+            {[
+              ['Composer', 'Vous composez votre menu ici, à votre goût.'],
+              ['Contact', 'Nous vous recontactons pour convenir d’un rendez-vous.'],
+              ['Dégustation', 'Vous dégustez votre grand soir en avant-première.'],
+              ['Contrat', 'On finalise votre devis, puis votre contrat.'],
+            ].map(([title, desc], i) => (
+              <li key={title} className="flex gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-medium text-cream">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="font-medium text-ink">{title}</p>
+                  <p className="text-sm text-muted">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       </motion.div>
     </div>
   )

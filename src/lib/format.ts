@@ -42,6 +42,20 @@ export function formatAllergen(raw: string): string {
   return raw.replace(/_/g, ' ')
 }
 
+// Étiquette régime : V / VG / SG -> libellé lisible.
+export function dietaryLabel(code: string): string {
+  switch (code) {
+    case 'V':
+      return 'Végétarien'
+    case 'VG':
+      return 'Végétalien'
+    case 'SG':
+      return 'Sans gluten'
+    default:
+      return code
+  }
+}
+
 // Date ISO -> "12 juin 2026".
 export function formatDate(iso: string): string {
   if (!iso) return ''

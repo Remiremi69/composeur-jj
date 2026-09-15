@@ -17,6 +17,38 @@ export interface Step {
   unit_label: string | null
 }
 
+export interface Formule {
+  id: string
+  slug: string
+  name: string
+  subtitle: string | null
+  price_per_person: number
+  included_steps: string[] // slugs des étapes incluses
+  highlights: string[] // puces "ce qui est inclus"
+  position: number
+  is_active: boolean
+}
+
+export interface Option {
+  id: string
+  slug: string
+  category: string // 'bar-de-nuit' | 'en-cas' | 'brunch'
+  name: string
+  description: string | null
+  price: number
+  price_unit: 'par_personne' | 'forfait'
+  position: number
+  is_active: boolean
+}
+
+export interface Inclusion {
+  id: string
+  group_label: string
+  label: string
+  position: number
+  is_active: boolean
+}
+
 export interface Item {
   id: string
   step_id: string
@@ -25,6 +57,9 @@ export interface Item {
   photo_url: string | null
   price: number
   price_unit: PriceUnit
+  supplement: number // +X € / personne
+  labels: string[] // régime : V, VG, SG
+  category: string | null // sous-type dans l'étape (ex : "Verrines", "Viande")
   allergens: string[]
   is_seasonal: boolean
   season_note: string | null
@@ -35,6 +70,7 @@ export interface Item {
 export interface Composition {
   id: string
   created_at: string
+  formule_id: string | null
   couple_names: string | null
   email: string | null
   phone: string | null
@@ -42,6 +78,7 @@ export interface Composition {
   guest_count: number | null
   status: CompositionStatus
   total_estimate: number | null
+  handled: boolean
   share_token: string
 }
 
@@ -49,6 +86,11 @@ export interface CompositionItem {
   composition_id: string
   item_id: string
   quantity: number
+}
+
+export interface CompositionOption {
+  composition_id: string
+  option_id: string
 }
 
 // Sélections en cours côté front : item_id -> quantité choisie.

@@ -81,7 +81,7 @@ export function evaluateStep(
         target: null,
         satisfied: true,
         canAddMore: true,
-        label: current > 0 ? `${current} ${unit}` : 'Optionnel — ajoutez si vous le souhaitez',
+        label: 'Inclus dans votre formule',
       }
     }
   }

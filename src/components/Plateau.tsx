@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Item, Selections, Step } from '../types/db'
 import type { RuleStatus } from '../lib/rules'
-import { formatTotal } from '../lib/format'
 import RuleCounter from './RuleCounter'
 
 interface PlateauProps {
@@ -9,7 +8,6 @@ interface PlateauProps {
   stepItems: Item[]
   selections: Selections
   status: RuleStatus
-  total: number
   isLastStep: boolean
   onRemove: (itemId: string) => void
   onSetQuantity: (itemId: string, qty: number) => void
@@ -22,7 +20,6 @@ export default function Plateau({
   stepItems,
   selections,
   status,
-  total,
   isLastStep,
   onRemove,
   onSetQuantity,
@@ -35,16 +32,8 @@ export default function Plateau({
   return (
     <div className="sticky bottom-0 z-10 border-t border-line bg-surface/95 backdrop-blur">
       <div className="mx-auto max-w-3xl px-4 py-3">
-        {/* Règle + estimation */}
-        <div className="flex items-end justify-between gap-4">
-          <div className="flex-1">
-            <RuleCounter status={status} />
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] uppercase tracking-wide text-muted">Estimation</p>
-            <p className="font-display text-lg text-ink">{formatTotal(total)}</p>
-          </div>
-        </div>
+        {/* Règle de l'étape */}
+        <RuleCounter status={status} />
 
         {/* Plateau : plats choisis pour cette étape */}
         {selected.length > 0 && (
@@ -118,7 +107,7 @@ export default function Plateau({
             disabled={!status.satisfied}
             className="flex-1 rounded-full bg-accent px-4 py-3 text-center text-sm font-semibold text-cream transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isLastStep ? 'Voir notre menu' : 'Étape suivante'}
+            {isLastStep ? 'Continuer' : 'Étape suivante'}
           </button>
         </div>
       </div>
