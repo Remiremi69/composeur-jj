@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = (await req.json()) as Payload
-    const { coupleNames, email, phone, weddingDate, guestCount, formuleId, selections } = body
+    const { coupleNames, email, weddingDate, guestCount, formuleId, selections } = body
     const optionIds = body.optionIds ?? []
 
     if (!coupleNames || !email || !selections || Object.keys(selections).length === 0) {
@@ -123,38 +123,9 @@ Deno.serve(async (req) => {
     )
     const total = perPerson * guests + optionsSum
 
-    const { data: comp, error: compErr } = await admin
-      .from('compositions')
-      .insert({
-        formule_id: formuleId || null,
-        couple_names: coupleNames,
-        email,
-        phone: phone ?? null,
-        wedding_date: weddingDate || null,
-        guest_count: guestCount,
-        status: 'submitted',
-        total_estimate: total,
-      })
-      .select('id, share_token')
-      .single()
-    if (compErr || !comp) {
-      return json({ ok: false, error: `Enregistrement impossible : ${compErr?.message}` }, 500)
-    }
-
-    await admin.from('composition_items').insert(
-      itemIds.map((item_id) => ({
-        composition_id: comp.id,
-        item_id,
-        quantity: selections[item_id],
-      })),
-    )
-
-    if (chosenOptions.length) {
-      await admin.from('composition_options').insert(
-        chosenOptions.map((o) => ({ composition_id: comp.id, option_id: o.id })),
-      )
-    }
-
+    // NB : l'enregistrement en base (compositions / items / options) est fait
+    // côté front (src/lib/submit.ts). Cette fonction ne fait QUE l'envoi des
+    // emails (récap couple + notification traiteur, PDF en pièce jointe).
     const pdfBytes = await buildPdf({
       coupleNames,
       weddingDate,
@@ -225,10 +196,16 @@ Deno.serve(async (req) => {
         <p style="margin-top:14px;font-size:13px;color:#8a7f74">Le récapitulatif est aussi en pièce jointe (PDF).</p>
       </div>`
 
-    const recipients = [
-      { to: TRAITEUR_EMAIL, role: 'traiteur', html: traiteurHtml, subject: `Nouvelle demande de menu — ${coupleNames}` },
-      { to: email, role: 'mariés', html: coupleHtml, subject: `Votre menu de mariage — ${coupleNames}` },
-    ].filter((r) => r.to)
+    // TRAITEUR_EMAIL peut contenir plusieurs adresses séparées par des virgules
+    // (ex : "contact@j-jtraiteur.fr, j.jtraiteur@hotmail.com") → reçu sur les deux.
+    const traiteurTo = TRAITEUR_EMAIL.split(',').map((s) => s.trim()).filter(Boolean)
+    const recipients: { to: string | string[]; role: string; html: string; subject: string }[] = []
+    if (traiteurTo.length) {
+      recipients.push({ to: traiteurTo, role: 'traiteur', html: traiteurHtml, subject: `Nouvelle demande de menu — ${coupleNames}` })
+    }
+    if (email) {
+      recipients.push({ to: email, role: 'mariés', html: coupleHtml, subject: `Votre menu de mariage — ${coupleNames}` })
+    }
 
     const emailResults: Record<string, string> = {}
     if (RESEND_API_KEY) {
@@ -257,7 +234,7 @@ Deno.serve(async (req) => {
       emailResults.info = 'RESEND_API_KEY absente — emails non envoyés'
     }
 
-    return json({ ok: true, compositionId: comp.id, total, emailResults })
+    return json({ ok: true, total, emailResults })
   } catch (e) {
     return json({ ok: false, error: String(e) }, 500)
   }
