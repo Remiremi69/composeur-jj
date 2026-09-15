@@ -70,7 +70,9 @@ function clean(s: string | null | undefined): string {
     .replace(/[“”]/g, '"')
     .replace(/…/g, '...')
     .replace(/[–—]/g, '-')
-    .replace(/[  ]/g, ' ')
+    // Espaces spéciaux non encodables par la police PDF (WinAnsi) :
+    // insécable, fine, insécable étroit (U+202F utilisé par le format € FR), etc.
+    .replace(/[    ⁠]/g, ' ')
 }
 
 function json(data: unknown, status = 200): Response {
