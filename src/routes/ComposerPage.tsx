@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
-import { evaluateStep, itemsForStep } from '../lib/rules'
+import { evaluateStep, itemsForStep, resolveStep } from '../lib/rules'
 import DishCard from '../components/DishCard'
 import CategoryAccordion from '../components/CategoryAccordion'
 import IncludedList from '../components/IncludedList'
@@ -40,7 +40,8 @@ export default function ComposerPage() {
   }
 
   const safeIndex = Math.min(index, activeSteps.length - 1)
-  const step = activeSteps[safeIndex]
+  // Étape courante, avec la règle propre à la formule choisie (nb de pièces…).
+  const step = resolveStep(activeSteps[safeIndex], formule)
   const stepItems = itemsForStep(step, items)
   const status = evaluateStep(step, stepItems, selections)
   // Options rattachées à cette étape (ex : présentation du fromage).

@@ -26,6 +26,7 @@ create table formules (
   price_per_person  numeric(10,2) not null default 0,
   included_steps    text[] default '{}',   -- slugs des étapes incluses
   highlights        text[] default '{}',   -- lignes "ce qui est inclus" (affichage carte)
+  step_rules        jsonb not null default '{}'::jsonb,  -- surcharges de règles par étape (ex : {"pieces-cocktail":{"min":4,"max":4}})
   position          int not null default 0,
   is_active         bool default true
 );

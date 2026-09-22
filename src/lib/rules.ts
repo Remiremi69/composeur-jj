@@ -1,7 +1,20 @@
-import type { Item, Selections, Step } from '../types/db'
+import type { Formule, Item, Selections, Step } from '../types/db'
 
 // Moteur de règles 100 % piloté par les données de la table `steps`.
 // Aucune règle métier en dur : tout vient de rule_type / rule_min / rule_max.
+
+// Applique la surcharge de règle éventuelle de la formule à une étape.
+// Ex : l'étape "pièces cocktail" impose 4 pièces pour Signature, 8 pour Harmonie.
+// Si la formule ne surcharge pas cette étape, on renvoie l'étape inchangée.
+export function resolveStep(step: Step, formule: Formule | null): Step {
+  const override = formule?.step_rules?.[step.slug]
+  if (!override) return step
+  return {
+    ...step,
+    rule_min: override.min ?? step.rule_min,
+    rule_max: override.max ?? step.rule_max,
+  }
+}
 
 export interface RuleStatus {
   current: number // pièces (exact_count) ou nombre de plats sélectionnés

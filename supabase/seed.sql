@@ -37,7 +37,7 @@ values ('cocktail', 'Votre cocktail', 'Un ou deux cocktails signature, avec ou s
 returning id into s_cocktail;
 
 insert into steps (slug, title, subtitle, position, rule_type, rule_min, rule_max, unit_label)
-values ('pieces-cocktail', 'Vos pièces cocktail', 'Composez votre assortiment — 12 pièces au choix', 3, 'pick_range', 12, 12, 'pièces')
+values ('pieces-cocktail', 'Vos pièces cocktail', 'Composez votre assortiment de pièces cocktail', 3, 'pick_range', 12, 12, 'pièces')
 returning id into s_pieces;
 
 insert into steps (slug, title, subtitle, position, rule_type, rule_min, rule_max, unit_label)
@@ -45,7 +45,7 @@ values ('grignotage', 'Le grignotage', 'Feuilletés et douceurs salées en libre
 returning id into s_grign;
 
 insert into steps (slug, title, subtitle, position, rule_type, rule_min, rule_max, unit_label)
-values ('animation', 'Animation plancha', 'Une ou deux préparations grillées minute devant vos invités', 5, 'pick_range', 1, 2, 'plats')
+values ('animation', 'Animation plancha', 'Vos préparations grillées minute, devant vos invités', 5, 'pick_range', 1, 2, 'plancha')
 returning id into s_anim;
 
 insert into steps (slug, title, subtitle, position, rule_type, rule_min, rule_max, unit_label)
@@ -74,20 +74,26 @@ returning id into s_cafe;
 
 
 -- ============================================================
--- FORMULES (Signature confirmée à 85 € ; Émotion/Harmonie = exemples)
+-- FORMULES — prix dégressifs selon le nb de pièces/planchas
+-- Signature 130 € (4 pièces, 1 plancha) ; Émotion 120 € (6 pièces, 1 plancha,
+-- amuse-bouche) ; Harmonie 110 € (8 pièces, 2 planchas).
+-- step_rules : impose le nb de pièces/planchas propre à chaque formule.
 -- ============================================================
-insert into formules (slug, name, subtitle, price_per_person, included_steps, highlights, position) values
-('signature', 'Signature', 'L''expérience à table : un cocktail, puis un repas complet, entrée comprise', 95,
+insert into formules (slug, name, subtitle, price_per_person, included_steps, highlights, step_rules, position) values
+('signature', 'Signature', 'L''expérience à table : un cocktail, puis un repas complet, entrée comprise', 130,
   array['format','boissons-vh','cocktail','pieces-cocktail','grignotage','animation','plat','feculent','legume','fromage','dessert','cafe'],
-  array['Vin d''honneur','· Citronnade, pièce chaude & feuilleté','—','Cocktail','· 8 pièces au choix','· 1 plancha au choix','—','Entrée au choix','Plat & accompagnement au choix','Fromage','—','Dessert','Café'], 1),
+  array['Vin d''honneur','· Citronnade, pièce chaude & feuilleté','—','Cocktail','· 4 pièces au choix','· 1 plancha au choix','—','Entrée au choix','Plat & accompagnement au choix','Fromage','—','Dessert','Café'],
+  '{"pieces-cocktail":{"min":4,"max":4},"animation":{"min":1,"max":1}}'::jsonb, 3),
 
-('emotion', 'Émotion', 'L''entre-deux : un cocktail plus fourni, un amuse-bouche, un repas resserré', 95,
+('emotion', 'Émotion', 'L''entre-deux : un cocktail plus fourni, un amuse-bouche, un repas resserré', 120,
   array['format','boissons-vh','cocktail','pieces-cocktail','grignotage','animation','plat','feculent','legume','fromage','dessert','cafe'],
-  array['Vin d''honneur','· Citronnade, pièce chaude & feuilleté','—','Cocktail','· 10 pièces au choix','· 1 plancha au choix','—','Amuse-bouche au choix','Fromage','—','Dessert','Café'], 2),
+  array['Vin d''honneur','· Citronnade, pièce chaude & feuilleté','—','Cocktail','· 6 pièces au choix','· 1 plancha au choix','—','Amuse-bouche au choix','Fromage','—','Dessert','Café'],
+  '{"pieces-cocktail":{"min":6,"max":6},"animation":{"min":1,"max":1}}'::jsonb, 2),
 
-('harmonie', 'Harmonie', 'Le cocktail à l''honneur : plus de pièces et d''animations, plus de temps pour trinquer', 95,
+('harmonie', 'Harmonie', 'Le cocktail à l''honneur : plus de pièces et d''animations, plus de temps pour trinquer', 110,
   array['format','boissons-vh','cocktail','pieces-cocktail','grignotage','animation','plat','feculent','legume','fromage','dessert','cafe'],
-  array['Vin d''honneur','· Citronnade, pièce chaude & feuilleté','—','Cocktail','· 12 pièces au choix','· 2 planchas au choix','—','Plat & accompagnement au choix','Fromage','—','Dessert','Café'], 3);
+  array['Vin d''honneur','· Citronnade, pièce chaude & feuilleté','—','Cocktail','· 8 pièces au choix','· 2 planchas au choix','—','Plat & accompagnement au choix','Fromage','—','Dessert','Café'],
+  '{"pieces-cocktail":{"min":8,"max":8},"animation":{"min":2,"max":2}}'::jsonb, 1);
 
 
 -- ============================================================

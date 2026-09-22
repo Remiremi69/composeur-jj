@@ -17,6 +17,11 @@ export interface Step {
   unit_label: string | null
 }
 
+// Surcharge de règle par formule : pour une étape donnée (slug), impose un
+// nombre min/max propre à cette formule (ex : 4 pièces pour Signature, 8 pour
+// Harmonie). Si absent pour une étape, on garde la règle par défaut de l'étape.
+export type StepRuleOverride = { min?: number | null; max?: number | null }
+
 export interface Formule {
   id: string
   slug: string
@@ -25,6 +30,7 @@ export interface Formule {
   price_per_person: number
   included_steps: string[] // slugs des étapes incluses
   highlights: string[] // puces "ce qui est inclus"
+  step_rules?: Record<string, StepRuleOverride> // surcharges de règles par étape
   position: number
   is_active: boolean
 }

@@ -32,8 +32,8 @@ export default function FormulePage() {
           Choisissez votre formule
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          Trois formules au même prix, trois ambiances — à vous de choisir votre rythme
-          de fête. Vous composerez ensuite chaque plat à votre goût.
+          Trois formules, trois ambiances — à vous de choisir votre rythme de fête.
+          Vous composerez ensuite chaque plat à votre goût.
         </p>
       </div>
 
@@ -53,16 +53,10 @@ export default function FormulePage() {
                 selected ? 'border-accent' : 'border-line'
               }`}
             >
-              {/* En-tête : nom + prix */}
+              {/* En-tête : nom (le prix est en bas, façon carte de restaurant) */}
               <div className="text-center">
                 <h2 className="font-display text-3xl text-ink">{f.name}</h2>
                 {f.subtitle && <p className="mt-1 text-sm text-muted">{f.subtitle}</p>}
-                <div className="mt-4 flex items-baseline justify-center gap-1">
-                  <span className="font-display text-5xl leading-none text-accent">
-                    {formatPrice(f.price_per_person)}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs uppercase tracking-[0.15em] text-muted">par personne</p>
               </div>
 
               <div className="my-5 h-px bg-line" />
@@ -75,8 +69,16 @@ export default function FormulePage() {
                 Eaux · service · nappage · verre, couvert &amp; assiette inclus
               </p>
 
+              {/* Prix — discret, en bas à droite (façon addition de restaurant) */}
+              <p className="mt-5 flex items-baseline justify-end gap-1.5">
+                <span className="font-display text-2xl text-ink">
+                  {formatPrice(f.price_per_person)}
+                </span>
+                <span className="text-xs uppercase tracking-[0.12em] text-muted">/ personne</span>
+              </p>
+
               {/* Choix */}
-              <div className="mt-5">
+              <div className="mt-4">
                 <button
                   type="button"
                   onClick={() => choose(f.id)}
