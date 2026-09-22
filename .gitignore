@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI (fichiers temporaires locaux)
+supabase/.temp/
