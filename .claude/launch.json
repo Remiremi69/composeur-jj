@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5174,
       "autoPort": true
+    },
+    {
+      "name": "composeur-localstack",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--mode", "localstack", "--port", "5174", "--strictPort"],
+      "port": 5174
     }
   ]
 }

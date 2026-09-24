@@ -23,6 +23,7 @@ interface PersistedState {
   formuleId: string | null
   selections: Selections
   optionIds: string[]
+  startedAt?: number | null
 }
 
 interface CompositionContextValue {
@@ -36,6 +37,9 @@ interface CompositionContextValue {
   removeItem: (itemId: string) => void
   optionIds: string[]
   toggleOption: (optionId: string) => void
+  // Horodatage (horloge du navigateur) du début de la composition, envoyé
+  // avec la soumission pour écarter les robots trop rapides.
+  startedAt: number | null
   reset: () => void
 }
 
@@ -59,18 +63,23 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
   const [formuleId, setFormuleState] = useState<string | null>(initial.formuleId)
   const [selections, setSelections] = useState<Selections>(initial.selections)
   const [optionIds, setOptionIds] = useState<string[]>(initial.optionIds ?? [])
+  const [startedAt, setStartedAt] = useState<number | null>(initial.startedAt ?? null)
 
   // Persistance navigateur : un rafraîchissement ne perd rien.
   useEffect(() => {
-    const state: PersistedState = { couple, formuleId, selections, optionIds }
+    const state: PersistedState = { couple, formuleId, selections, optionIds, startedAt }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     } catch {
       // ignore (mode privé, quota…)
     }
-  }, [couple, formuleId, selections, optionIds])
+  }, [couple, formuleId, selections, optionIds, startedAt])
 
-  const setCouple = useCallback((next: CoupleInfo) => setCoupleState(next), [])
+  const setCouple = useCallback((next: CoupleInfo) => {
+    setCoupleState(next)
+    // On garde le premier horodatage : modifier ses infos ne le réinitialise pas.
+    setStartedAt((prev) => prev ?? Date.now())
+  }, [])
 
   const setFormule = useCallback((id: string) => setFormuleState(id), [])
 
@@ -109,6 +118,7 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
     setFormuleState(null)
     setSelections({})
     setOptionIds([])
+    setStartedAt(null)
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch {
@@ -128,6 +138,7 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
       removeItem,
       optionIds,
       toggleOption,
+      startedAt,
       reset,
     }),
     [
@@ -141,6 +152,7 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
       removeItem,
       optionIds,
       toggleOption,
+      startedAt,
       reset,
     ],
   )

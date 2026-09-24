@@ -1,10 +1,14 @@
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 
 export default function ConfirmationPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { couple, reset } = useComposition()
+  // Transmis par la page récap : l'email récapitulatif est-il bien parti ?
+  // undefined = inconnu (page rechargée) : on ne promet rien.
+  const emailSent = (location.state as { emailSent?: boolean } | null)?.emailSent
 
   function startOver() {
     reset()
@@ -22,14 +26,28 @@ export default function ConfirmationPage() {
           ✓
         </div>
         <h1 className="mt-6 text-3xl text-ink">Merci{couple ? `, ${couple.coupleNames}` : ''} !</h1>
-        <p className="mt-3 text-muted">
-          Votre menu a bien été envoyé. Vous le recevez par email
-          {couple?.email ? ` (${couple.email})` : ''}, accompagné du récapitulatif en PDF.
-        </p>
-        <p className="mt-2 text-muted">
-          Votre traiteur J&amp;J l'a également reçu et reviendra vers vous pour affiner
-          et confirmer votre devis.
-        </p>
+        {emailSent === true ? (
+          <>
+            <p className="mt-3 text-muted">
+              Votre menu a bien été envoyé. Vous le recevez par email
+              {couple?.email ? ` (${couple.email})` : ''}, accompagné du récapitulatif en PDF.
+            </p>
+            <p className="mt-2 text-muted">
+              Votre traiteur J&amp;J l'a également reçu et reviendra vers vous pour affiner
+              et confirmer votre devis.
+            </p>
+          </>
+        ) : emailSent === false ? (
+          <p className="mt-3 text-muted">
+            Votre menu est bien enregistré et J&amp;J l'a reçu. L'email récapitulatif n'a
+            pas pu partir, nous vous le renverrons.
+          </p>
+        ) : (
+          <p className="mt-3 text-muted">
+            Votre menu est bien enregistré et J&amp;J l'a reçu. Votre traiteur reviendra vers
+            vous pour affiner et confirmer votre devis.
+          </p>
+        )}
 
         <div className="mt-8 rounded-card border border-line bg-surface p-6 text-left">
           <p className="text-xs uppercase tracking-[0.2em] text-accent">Prochaine étape</p>

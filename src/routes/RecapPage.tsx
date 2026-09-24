@@ -1,20 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { itemsForStep } from '../lib/rules'
-import { compositionTotal, pricePerPerson } from '../lib/pricing'
-import { formatDate, formatPrice, formatTotal } from '../lib/format'
+import { computeEstimate } from '../lib/pricing'
+import { formatDate, formatPrice } from '../lib/format'
 import { submitComposition } from '../lib/submit'
 import InclusionsPanel from '../components/InclusionsPanel'
 
+// Clé publique Cloudflare Turnstile : le widget n'apparaît que si elle est définie.
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
+
 export default function RecapPage() {
   const navigate = useNavigate()
-  const { couple, formuleId, selections, optionIds } = useComposition()
+  const { couple, formuleId, selections, optionIds, startedAt } = useComposition()
   const { formules, steps, items, options, inclusions, loading } = useCatalog()
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitErrors, setSubmitErrors] = useState<string[]>([])
+  // Anti-spam : champ piège (toujours vide pour un humain), horodatage de
+  // repli si le début de composition n'est pas connu, jeton Turnstile.
+  const [website, setWebsite] = useState('')
+  const [mountedAt] = useState(() => Date.now())
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance>()
 
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
@@ -34,25 +44,42 @@ export default function RecapPage() {
   const activeSteps = formule
     ? steps.filter((s) => formule.included_steps.includes(s.slug))
     : steps
-  const perPerson = pricePerPerson(formule, items, selections)
-  const total = compositionTotal(
+  // Même calcul que le serveur : le prix affiché est le prix enregistré.
+  const estimate = computeEstimate(
     formule,
     items,
     selections,
-    couple.guestCount,
     options,
     optionIds,
+    couple.guestCount,
   )
+  const needsTurnstile = Boolean(TURNSTILE_SITE_KEY)
   const chosenOptions = options.filter((o) => optionIds.includes(o.id))
 
   async function handleSubmit() {
     if (!couple || !formuleId) return
     setSubmitting(true)
-    setSubmitError(null)
-    const result = await submitComposition(couple, formuleId, selections, optionIds, total)
+    setSubmitErrors([])
+    const result = await submitComposition({
+      couple,
+      formuleId,
+      selections,
+      optionIds,
+      startedAt: startedAt ?? mountedAt,
+      website,
+      turnstileToken,
+    })
     setSubmitting(false)
-    if (result.ok) navigate('/confirmation')
-    else setSubmitError(result.error ?? "L'envoi a échoué. Réessayez dans un instant.")
+    if (result.ok) {
+      navigate('/confirmation', { state: { emailSent: result.emailSent } })
+      return
+    }
+    setSubmitErrors(result.errors)
+    // Un jeton Turnstile ne sert qu'une fois : on en redemande un.
+    if (needsTurnstile) {
+      turnstileRef.current?.reset()
+      setTurnstileToken(null)
+    }
   }
 
   return (
@@ -100,7 +127,7 @@ export default function RecapPage() {
                       <p className="font-display text-lg text-ink">
                         {it.name}
                         {it.supplement > 0 && (
-                          <span className="text-muted"> · + {formatTotal(it.supplement)}/pers</span>
+                          <span className="text-muted"> · + {formatPrice(it.supplement)}/pers</span>
                         )}
                       </p>
                       {it.description && (
@@ -127,8 +154,8 @@ export default function RecapPage() {
                       {' '}
                       ·{' '}
                       {o.price_unit === 'par_personne'
-                        ? `${formatTotal(o.price)}/pers`
-                        : `${formatTotal(o.price)} forfait`}
+                        ? `${formatPrice(o.price)}/pers`
+                        : `${formatPrice(o.price)} forfait`}
                     </span>
                   </p>
                 </li>
@@ -141,7 +168,7 @@ export default function RecapPage() {
         <div className="mt-10 rounded-card border border-line bg-surface p-6 text-center">
           <p className="text-sm text-muted">Estimation</p>
           <p className="mt-1 font-display text-3xl text-ink">
-            {formatPrice(perPerson)}
+            {formatPrice(estimate.perPersonAllIn)}
             <span className="ml-1 text-base font-normal text-muted">par personne</span>
           </p>
           <p className="mt-2 text-xs text-muted">
@@ -156,13 +183,54 @@ export default function RecapPage() {
           </div>
         )}
 
+        {/* Champ piège anti-robot : invisible et inaccessible pour un humain */}
+        <div
+          aria-hidden="true"
+          style={{ position: 'absolute', left: '-10000px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}
+        >
+          <label htmlFor="website">Ne pas remplir</label>
+          <input
+            id="website"
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+          />
+        </div>
+
         {/* Actions */}
         <div className="mt-8 flex flex-col gap-3">
-          {submitError && <p className="text-center text-sm text-accent">{submitError}</p>}
+          {submitErrors.length > 0 && (
+            <div
+              role="alert"
+              className="rounded-card border border-accent/40 bg-surface p-4 text-left text-sm text-ink"
+            >
+              <p className="font-medium text-accent">Votre menu n'a pas pu être envoyé :</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {submitErrors.map((err) => (
+                  <li key={err}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {needsTurnstile && (
+            <div className="flex justify-center">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY as string}
+                options={{ language: 'fr', theme: 'light' }}
+                onSuccess={setTurnstileToken}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+              />
+            </div>
+          )}
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || (needsTurnstile && !turnstileToken)}
             className="rounded-full bg-accent px-6 py-3.5 font-semibold text-cream transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Envoi en cours…' : 'Envoyer à notre traiteur'}

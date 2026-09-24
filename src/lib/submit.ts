@@ -1,70 +1,80 @@
+import { FunctionsHttpError } from '@supabase/supabase-js'
+import type { Estimate } from '@core/pricing'
 import { supabase } from './supabase'
 import type { CoupleInfo } from '../context/CompositionContext'
 import type { Selections } from '../types/db'
 
-export interface SubmitResult {
-  ok: boolean
-  compositionId?: string
-  error?: string
+// Soumission d'un menu : UN SEUL appel à l'Edge Function submit-composition,
+// qui valide, recalcule le prix, enregistre et envoie les emails.
+// Le front n'écrit jamais directement dans les tables.
+
+export interface SubmitInput {
+  couple: CoupleInfo
+  formuleId: string
+  selections: Selections
+  optionIds: string[]
+  startedAt: number // début de la composition (horloge du navigateur)
+  website: string // champ piège : toujours vide pour un humain
+  turnstileToken: string | null
 }
 
-// Enregistre la demande directement dans Supabase (insertion publique via RLS).
-// C'est ce qui alimente le CRM du back-office. Puis on déclenche l'envoi des
-// emails (récap couple + notification traiteur) via l'Edge Function, en
-// best-effort : si l'email échoue, la demande est déjà enregistrée.
-export async function submitComposition(
-  couple: CoupleInfo,
-  formuleId: string,
-  selections: Selections,
-  optionIds: string[],
-  totalEstimate: number,
-): Promise<SubmitResult> {
-  const id = crypto.randomUUID()
-  const itemIds = Object.keys(selections).filter((k) => (selections[k] ?? 0) > 0)
+export type SubmitResult =
+  | {
+      ok: true
+      compositionId: string
+      shareToken: string
+      emailSent: boolean
+      estimate: Estimate
+    }
+  | { ok: false; errors: string[] }
 
-  const { error: compErr } = await supabase.from('compositions').insert({
-    id,
-    formule_id: formuleId,
-    couple_names: couple.coupleNames,
-    email: couple.email,
-    wedding_date: couple.weddingDate || null,
-    guest_count: couple.guestCount,
-    status: 'submitted',
-    total_estimate: totalEstimate,
+const GENERIC_ERROR =
+  "L'envoi a échoué. Vérifiez votre connexion et réessayez dans un instant."
+
+export async function submitComposition(input: SubmitInput): Promise<SubmitResult> {
+  const { data, error } = await supabase.functions.invoke('submit-composition', {
+    body: {
+      coupleNames: input.couple.coupleNames,
+      email: input.couple.email,
+      weddingDate: input.couple.weddingDate || null,
+      guestCount: input.couple.guestCount,
+      formuleId: input.formuleId,
+      selections: input.selections,
+      optionIds: input.optionIds,
+      startedAt: input.startedAt,
+      sentAt: Date.now(),
+      website: input.website,
+      turnstileToken: input.turnstileToken,
+    },
   })
-  if (compErr) return { ok: false, error: compErr.message }
 
-  if (itemIds.length) {
-    const { error } = await supabase.from('composition_items').insert(
-      itemIds.map((item_id) => ({ composition_id: id, item_id, quantity: selections[item_id] })),
-    )
-    if (error) return { ok: false, error: error.message }
+  if (error) {
+    // Réponse d'erreur de la fonction (422 validation, 429 limite…) : on
+    // récupère les messages en français qu'elle renvoie.
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const body = (await error.context.json()) as { errors?: unknown; error?: unknown }
+        if (Array.isArray(body.errors) && body.errors.length > 0) {
+          return { ok: false, errors: body.errors.map(String) }
+        }
+        if (typeof body.error === 'string' && body.error) {
+          return { ok: false, errors: [body.error] }
+        }
+      } catch {
+        // corps illisible : message générique
+      }
+    }
+    return { ok: false, errors: [GENERIC_ERROR] }
   }
 
-  if (optionIds.length) {
-    const { error } = await supabase.from('composition_options').insert(
-      optionIds.map((option_id) => ({ composition_id: id, option_id })),
-    )
-    if (error) return { ok: false, error: error.message }
+  if (data?.ok && typeof data.compositionId === 'string') {
+    return {
+      ok: true,
+      compositionId: data.compositionId,
+      shareToken: data.shareToken,
+      emailSent: data.emailSent === true,
+      estimate: data.estimate,
+    }
   }
-
-  // Envoi des emails (couple + traiteur) via l'Edge Function. Best-effort :
-  // on n'échoue pas le parcours si l'email ne part pas (demande déjà en base).
-  try {
-    await supabase.functions.invoke('submit-composition', {
-      body: {
-        coupleNames: couple.coupleNames,
-        email: couple.email,
-        weddingDate: couple.weddingDate || null,
-        guestCount: couple.guestCount,
-        formuleId,
-        selections,
-        optionIds,
-      },
-    })
-  } catch {
-    // silencieux : l'email est un bonus, la demande est déjà enregistrée
-  }
-
-  return { ok: true, compositionId: id }
+  return { ok: false, errors: [GENERIC_ERROR] }
 }

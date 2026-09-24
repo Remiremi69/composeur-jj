@@ -21,11 +21,53 @@ export default function AdminPage() {
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  // Être connecté ne suffit pas : il faut être déclaré dans la table admins.
+  // null = vérification en cours.
+  const userId = session?.user.id ?? null
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!userId) {
+      setIsAdmin(null)
+      return
+    }
+    let cancelled = false
+    setIsAdmin(null)
+    supabase.rpc('is_admin').then(({ data, error }) => {
+      if (!cancelled) setIsAdmin(!error && data === true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
   if (!authReady) {
     return <div className="flex min-h-screen items-center justify-center text-muted">…</div>
   }
   if (!session) return <AdminLogin />
+  if (isAdmin === null) {
+    return <div className="flex min-h-screen items-center justify-center text-muted">Vérification de vos accès…</div>
+  }
+  if (!isAdmin) return <AccessDenied email={session.user.email ?? null} />
   return <AdminDashboard />
+}
+
+function AccessDenied({ email }: { email: string | null }) {
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
+      <p className="text-xs uppercase tracking-[0.2em] text-accent">J&amp;J Traiteur</p>
+      <h1 className="mt-2 font-display text-3xl text-ink">Accès réservé</h1>
+      <p className="mt-3 text-muted">
+        Ce compte{email ? ` (${email})` : ''} n'a pas accès à l'espace traiteur.
+      </p>
+      <button
+        type="button"
+        onClick={() => supabase.auth.signOut()}
+        className="mt-6 rounded-full bg-accent px-6 py-3 font-semibold text-cream transition-colors hover:bg-accent-dark"
+      >
+        Se déconnecter
+      </button>
+    </div>
+  )
 }
 
 function AdminDashboard() {

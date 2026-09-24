@@ -1,382 +1,302 @@
 // Edge Function : submit-composition
-// Reçoit une composition, l'enregistre, génère un PDF récapitulatif
-// et envoie un email (PDF en pièce jointe) aux mariés ET au traiteur.
+// Point d'entrée UNIQUE de la soumission d'un menu. Le front n'écrit jamais
+// directement dans les tables.
 //
-// Tourne côté serveur Supabase (Deno). Utilise la clé service_role,
-// qui n'arrive JAMAIS dans le navigateur. Aucune donnée métier en dur.
+// Chaîne de traitement :
+//   CORS strict → POST ≤ 50 ko → honeypot → délai minimal → limite de débit
+//   → Turnstile (si configuré) → validation (noyau partagé) → prix recalculé
+//   → create_composition (atomique) → emails (une seule fois) → réponse.
 //
-// Modèle de prix : forfait/personne de la formule + suppléments/personne.
+// Aucune trace technique n'est renvoyée au client : tout est journalisé ici.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { encodeBase64 } from 'https://deno.land/std@0.224.0/encoding/base64.ts'
+import { computeEstimate } from '../_shared/core/pricing.ts'
+import type { Catalog, CompositionPayload } from '../_shared/core/types.ts'
+import { validateComposition } from '../_shared/core/validation.ts'
+import {
+  checkRateLimit,
+  clientIp,
+  isHoneypotFilled,
+  isHumanTiming,
+  sha256Hex,
+  verifyTurnstile,
+} from './antispam.ts'
+import { corsHeaders, isOriginAllowed, normalizeOrigin } from './cors.ts'
+import { coupleEmail, sendEmail, traiteurEmail } from './emails.ts'
+import { buildPdf } from './pdf.ts'
+import { buildRecap } from './recap.ts'
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
-const TRAITEUR_EMAIL = Deno.env.get('TRAITEUR_EMAIL') ?? ''
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'Le Composeur <onboarding@resend.dev>'
+const MAX_BODY_BYTES = 50 * 1024
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+const env = (name: string) => (Deno.env.get(name) ?? '').trim()
 
-interface Item {
-  id: string
-  step_id: string
-  name: string
-  description: string | null
-  supplement: number
-  position: number
-}
-interface Step {
-  id: string
-  title: string
-  position: number
-}
-interface Formule {
-  id: string
-  name: string
-  price_per_person: number
-}
-interface Option {
-  id: string
-  name: string
-  price: number
-  price_unit: 'par_personne' | 'forfait'
-}
-interface Payload {
-  coupleNames: string
-  email: string
-  phone?: string
-  weddingDate?: string
-  guestCount: number
-  formuleId: string
-  selections: Record<string, number>
-  optionIds?: string[]
-}
+const GENERIC_ERROR = 'Une erreur est survenue. Merci de réessayer dans un instant.'
 
-const eur = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-})
-
-function clean(s: string | null | undefined): string {
-  return (s ?? '')
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/…/g, '...')
-    .replace(/[–—]/g, '-')
-    // Espaces spéciaux non encodables par la police PDF (WinAnsi) :
-    // insécable, fine, insécable étroit (U+202F utilisé par le format € FR), etc.
-    .replace(/[    ⁠]/g, ' ')
-}
-
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status: number, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8' },
   })
+}
+
+// Lit le corps en ne conservant que MAX_BODY_BYTES octets. Le flux est vidé
+// jusqu'au bout même s'il est trop gros : répondre sans le consommer bloque
+// la passerelle (504) au lieu de renvoyer un 413 propre.
+async function readBodyLimited(req: Request): Promise<{ text: string; tooLarge: boolean }> {
+  if (!req.body) return { text: '', tooLarge: false }
+  const reader = req.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size <= MAX_BODY_BYTES) chunks.push(value)
+  }
+  if (size > MAX_BODY_BYTES) return { text: '', tooLarge: true }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const c of chunks) {
+    bytes.set(c, offset)
+    offset += c.byteLength
+  }
+  return { text: new TextDecoder().decode(bytes), tooLarge: false }
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+// Ne garde que les champs attendus de la composition (le reste est ignoré).
+function pickPayload(body: Record<string, unknown>): Record<string, unknown> {
+  return {
+    coupleNames: body.coupleNames,
+    email: body.email,
+    phone: body.phone,
+    weddingDate: body.weddingDate,
+    guestCount: body.guestCount,
+    formuleId: body.formuleId,
+    selections: body.selections,
+    optionIds: body.optionIds ?? [],
+  }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ ok: false, error: 'Méthode non autorisée' }, 405)
+  const origin = normalizeOrigin(req.headers.get('origin'))
+  if (!isOriginAllowed(origin)) {
+    console.warn(`[submit] origine refusée : ${origin || '(aucune)'}`)
+    return json({ ok: false, error: 'Origine non autorisée.' }, 403)
+  }
+  const cors = corsHeaders(origin)
+
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+  if (req.method !== 'POST') {
+    return json({ ok: false, error: 'Méthode non autorisée.' }, 405, cors)
+  }
 
   try {
-    const body = (await req.json()) as Payload
-    const { coupleNames, email, weddingDate, guestCount, formuleId, selections } = body
-    const optionIds = body.optionIds ?? []
-
-    if (!coupleNames || !email || !selections || Object.keys(selections).length === 0) {
-      return json({ ok: false, error: 'Composition incomplète.' }, 400)
+    // --- Taille et format du corps (50 ko max) --------------------------
+    const { text: raw, tooLarge } = await readBodyLimited(req)
+    if (tooLarge) {
+      return json({ ok: false, error: 'La requête est trop volumineuse.' }, 413, cors)
+    }
+    let body: unknown
+    try {
+      body = JSON.parse(raw)
+    } catch {
+      return json({ ok: false, error: 'La requête est invalide.' }, 400, cors)
+    }
+    if (!isPlainObject(body)) {
+      return json({ ok: false, error: 'La requête est invalide.' }, 400, cors)
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
-    const itemIds = Object.keys(selections)
-
-    const [{ data: steps }, { data: items }, { data: formule }, { data: options }] =
-      await Promise.all([
-        admin.from('steps').select('*').order('position', { ascending: true }),
-        admin.from('items').select('*').in('id', itemIds),
-        admin.from('formules').select('*').eq('id', formuleId).maybeSingle(),
-        optionIds.length
-          ? admin.from('options').select('*').in('id', optionIds)
-          : Promise.resolve({ data: [] as Option[] }),
-      ])
-    if (!steps || !items) {
-      return json({ ok: false, error: 'Catalogue introuvable.' }, 500)
+    // --- Anti-spam ------------------------------------------------------
+    if (isHoneypotFilled(body)) {
+      console.warn('[submit] honeypot rempli : soumission ignorée')
+      return json({ ok: true }, 200, cors)
+    }
+    if (!isHumanTiming(body.startedAt, body.sentAt)) {
+      console.warn('[submit] envoi trop rapide ou horodatage absent')
+      return json(
+        { ok: false, error: 'Merci de prendre quelques secondes avant d’envoyer votre menu.' },
+        400,
+        cors,
+      )
     }
 
-    // Prix : forfait/pers de la formule + suppléments/pers des plats choisis
-    const supplements = (items as Item[]).reduce(
-      (s, it) => s + ((selections[it.id] ?? 0) > 0 ? it.supplement ?? 0 : 0),
-      0,
-    )
-    const perPerson = ((formule as Formule | null)?.price_per_person ?? 0) + supplements
-    const guests = guestCount > 0 ? guestCount : 0
-    const chosenOptions = (options ?? []) as Option[]
-    const optionsSum = chosenOptions.reduce(
-      (s, o) => s + (o.price_unit === 'par_personne' ? o.price * guests : o.price),
-      0,
-    )
-    const total = perPerson * guests + optionsSum
-
-    // NB : l'enregistrement en base (compositions / items / options) est fait
-    // côté front (src/lib/submit.ts). Cette fonction ne fait QUE l'envoi des
-    // emails (récap couple + notification traiteur, PDF en pièce jointe).
-    const pdfBytes = await buildPdf({
-      coupleNames,
-      weddingDate,
-      guestCount,
-      formuleName: (formule as Formule | null)?.name ?? '',
-      perPerson,
-      total,
-      steps: steps as Step[],
-      items: items as Item[],
-      selections,
-      options: chosenOptions,
+    const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
+      auth: { persistSession: false, autoRefreshToken: false },
     })
-    const pdfB64 = encodeBase64(pdfBytes)
 
-    const formuleName = (formule as Formule | null)?.name ?? ''
-    const dateStr = weddingDate ? formatDate(weddingDate) : '—'
-
-    // Menu en HTML (étapes dans l'ordre + options)
-    let menuRows = ''
-    for (const step of steps as Step[]) {
-      const chosen = (items as Item[])
-        .filter((it) => it.step_id === step.id && (selections[it.id] ?? 0) > 0)
-        .sort((a, b) => a.position - b.position)
-      if (!chosen.length) continue
-      menuRows += `<p style="margin:14px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8a7f74">${clean(step.title)}</p>`
-      for (const it of chosen) {
-        const sup = it.supplement > 0 ? ` (+ ${eur.format(it.supplement)}/pers)` : ''
-        menuRows += `<p style="margin:0;font-size:15px;color:#2b2521">${clean(it.name)}${sup}</p>`
-      }
-    }
-    if (chosenOptions.length) {
-      menuRows += `<p style="margin:14px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8a7f74">Options</p>`
-      for (const o of chosenOptions) {
-        const p =
-          o.price_unit === 'par_personne'
-            ? `${eur.format(o.price)}/pers`
-            : `${eur.format(o.price)} forfait`
-        menuRows += `<p style="margin:0;font-size:15px;color:#2b2521">${clean(o.name)} (${p})</p>`
-      }
+    const ip = clientIp(req)
+    const salt = env('RATE_LIMIT_SALT')
+    if (!salt) console.warn('[submit] RATE_LIMIT_SALT absent : hachage sans sel')
+    const ipHash = await sha256Hex(`${ip}${salt}`)
+    if (!(await checkRateLimit(admin, ipHash))) {
+      console.warn('[submit] limite de débit atteinte')
+      return json(
+        {
+          ok: false,
+          error: 'Vous avez envoyé plusieurs menus en peu de temps. Merci de réessayer dans une heure.',
+        },
+        429,
+        cors,
+      )
     }
 
-    const traiteurHtml = `
-      <div style="font-family:Arial,sans-serif;color:#2b2521;max-width:560px;margin:auto">
-        <p style="text-transform:uppercase;letter-spacing:2px;color:#8c6a3f;font-size:13px">Le Composeur — J&amp;J Traiteur</p>
-        <h1 style="font-family:Georgia,serif;font-size:22px;margin:4px 0 16px">Nouvelle demande de menu</h1>
-        <table style="font-size:14px;line-height:1.7;border-collapse:collapse">
-          <tr><td style="color:#8a7f74;padding-right:16px">Couple</td><td><strong>${clean(coupleNames)}</strong></td></tr>
-          <tr><td style="color:#8a7f74">Date du mariage</td><td>${dateStr}</td></tr>
-          <tr><td style="color:#8a7f74">Nombre de convives</td><td>${guestCount}</td></tr>
-          <tr><td style="color:#8a7f74">Email des mariés</td><td><a href="mailto:${clean(email)}">${clean(email)}</a></td></tr>
-          <tr><td style="color:#8a7f74">Formule</td><td>${clean(formuleName)}</td></tr>
-          <tr><td style="color:#8a7f74">Estimation</td><td><strong>${eur.format(total)}</strong> (${eur.format(perPerson)}/pers)</td></tr>
-        </table>
-        <h2 style="font-family:Georgia,serif;font-size:18px;margin:22px 0 4px">Le menu</h2>
-        ${menuRows}
-        <p style="margin-top:22px;font-size:13px;color:#8a7f74">Le récapitulatif complet est également en pièce jointe (PDF).</p>
-      </div>`
-
-    const coupleHtml = `
-      <div style="font-family:Arial,sans-serif;color:#2b2521;max-width:560px;margin:auto">
-        <p style="text-transform:uppercase;letter-spacing:2px;color:#8c6a3f;font-size:13px">J&amp;J Traiteur</p>
-        <h1 style="font-family:Georgia,serif;font-size:22px;margin:4px 0 12px">Merci ${clean(coupleNames)} !</h1>
-        <p style="font-size:14px;line-height:1.6">Voici le récapitulatif de votre menu pour le ${dateStr} (${guestCount} convives).
-        Cette estimation est indicative — votre traiteur J&amp;J reviendra vers vous pour confirmer le devis.</p>
-        <h2 style="font-family:Georgia,serif;font-size:18px;margin:22px 0 4px">Votre menu</h2>
-        ${menuRows}
-        <p style="margin-top:18px;font-size:15px"><strong>Estimation : ${eur.format(total)}</strong></p>
-        <p style="margin-top:14px;font-size:13px;color:#8a7f74">Le récapitulatif est aussi en pièce jointe (PDF).</p>
-      </div>`
-
-    // TRAITEUR_EMAIL peut contenir plusieurs adresses séparées par des virgules
-    // (ex : "contact@j-jtraiteur.fr, j.jtraiteur@hotmail.com") → reçu sur les deux.
-    const traiteurTo = TRAITEUR_EMAIL.split(',').map((s) => s.trim()).filter(Boolean)
-    const recipients: { to: string | string[]; role: string; html: string; subject: string }[] = []
-    if (traiteurTo.length) {
-      recipients.push({ to: traiteurTo, role: 'traiteur', html: traiteurHtml, subject: `Nouvelle demande de menu — ${coupleNames}` })
-    }
-    if (email) {
-      recipients.push({ to: email, role: 'mariés', html: coupleHtml, subject: `Votre menu de mariage — ${coupleNames}` })
+    const turnstileSecret = env('TURNSTILE_SECRET_KEY')
+    if (turnstileSecret && !(await verifyTurnstile(turnstileSecret, body.turnstileToken, ip))) {
+      console.warn('[submit] vérification Turnstile échouée')
+      return json(
+        { ok: false, error: 'La vérification anti-robot a échoué. Merci de réessayer.' },
+        403,
+        cors,
+      )
     }
 
-    const emailResults: Record<string, string> = {}
-    if (RESEND_API_KEY) {
-      for (const r of recipients) {
-        try {
-          const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${RESEND_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: FROM_EMAIL,
-              to: r.to,
-              subject: r.subject,
-              html: r.html,
-              attachments: [{ filename: 'menu-de-mariage.pdf', content: pdfB64 }],
-            }),
-          })
-          emailResults[r.role] = res.ok ? 'envoyé' : `erreur (${await res.text()})`
-        } catch (e) {
-          emailResults[r.role] = `erreur (${String(e)})`
-        }
-      }
-    } else {
-      emailResults.info = 'RESEND_API_KEY absente — emails non envoyés'
+    // --- Catalogue (y compris inactifs, pour pouvoir les refuser) --------
+    const [formules, steps, items, options] = await Promise.all([
+      admin.from('formules').select('*'),
+      admin.from('steps').select('*'),
+      admin.from('items').select('*'),
+      admin.from('options').select('*'),
+    ])
+    const loadError = formules.error ?? steps.error ?? items.error ?? options.error
+    if (loadError) throw new Error(`chargement du catalogue : ${loadError.message}`)
+    const catalog: Catalog = {
+      formules: formules.data ?? [],
+      steps: steps.data ?? [],
+      items: items.data ?? [],
+      options: options.data ?? [],
     }
 
-    return json({ ok: true, total, emailResults })
+    // --- Validation + prix recalculé côté serveur -----------------------
+    const candidate = pickPayload(body)
+    const validation = validateComposition(catalog, candidate)
+    if (!validation.ok) {
+      return json({ ok: false, errors: validation.errors }, 422, cors)
+    }
+    const payload = candidate as unknown as CompositionPayload
+    const formule = catalog.formules.find((f) => f.id === payload.formuleId)!
+    // Le total éventuellement envoyé par le navigateur est ignoré.
+    const estimate = computeEstimate(
+      formule,
+      catalog.items,
+      payload.selections,
+      catalog.options,
+      payload.optionIds,
+      payload.guestCount,
+    )
+
+    // --- Enregistrement atomique -----------------------------------------
+    const { data: created, error: createError } = await admin.rpc('create_composition', {
+      p: {
+        formule_id: payload.formuleId,
+        couple_names: payload.coupleNames.trim(),
+        email: payload.email.trim(),
+        phone: typeof payload.phone === 'string' ? payload.phone.trim() : null,
+        wedding_date: payload.weddingDate || null,
+        guest_count: payload.guestCount,
+        total_estimate: estimate.total,
+        items: Object.entries(payload.selections).map(([item_id, quantity]) => ({
+          item_id,
+          quantity,
+        })),
+        option_ids: payload.optionIds,
+      },
+    })
+    const row = Array.isArray(created) ? created[0] : null
+    if (createError || !row) {
+      throw new Error(`create_composition : ${createError?.message ?? 'aucune ligne renvoyée'}`)
+    }
+    const compositionId: string = row.id
+    const shareToken: string = row.share_token
+
+    // --- Emails (n'empêchent jamais la réponse : la demande est enregistrée)
+    let emailSent = false
+    try {
+      emailSent = await sendCompositionEmails(admin, compositionId, buildRecap(catalog, formule, payload, estimate))
+    } catch (e) {
+      console.error(`[submit] envoi des emails (${compositionId}) :`, e)
+    }
+
+    return json({ ok: true, compositionId, shareToken, emailSent, estimate }, 200, cors)
   } catch (e) {
-    return json({ ok: false, error: String(e) }, 500)
+    console.error('[submit] erreur inattendue :', e)
+    return json({ ok: false, error: GENERIC_ERROR }, 500, cors)
   }
 })
 
-interface PdfData {
-  coupleNames: string
-  weddingDate?: string
-  guestCount: number
-  formuleName: string
-  perPerson: number
-  total: number
-  steps: Step[]
-  items: Item[]
-  selections: Record<string, number>
-  options: Option[]
-}
-
-async function buildPdf(data: PdfData): Promise<Uint8Array> {
-  const doc = await PDFDocument.create()
-  const serif = await doc.embedFont(StandardFonts.TimesRoman)
-  const serifBold = await doc.embedFont(StandardFonts.TimesRomanBold)
-  const sans = await doc.embedFont(StandardFonts.Helvetica)
-
-  const ink = rgb(0.17, 0.145, 0.129)
-  const muted = rgb(0.54, 0.5, 0.45)
-  const accent = rgb(0.55, 0.42, 0.25)
-
-  const W = 595
-  const H = 842
-  const margin = 64
-  const maxW = W - margin * 2
-
-  let page = doc.addPage([W, H])
-  let y = H - margin
-
-  function ensure(space: number) {
-    if (y - space < margin) {
-      page = doc.addPage([W, H])
-      y = H - margin
-    }
-  }
-  function center(text: string, font: typeof serif, size: number, color = ink) {
-    const t = clean(text)
-    const w = font.widthOfTextAtSize(t, size)
-    page.drawText(t, { x: (W - w) / 2, y, size, font, color })
-  }
-  function wrap(text: string, font: typeof serif, size: number): string[] {
-    const words = clean(text).split(/\s+/)
-    const lines: string[] = []
-    let line = ''
-    for (const word of words) {
-      const test = line ? `${line} ${word}` : word
-      if (font.widthOfTextAtSize(test, size) > maxW && line) {
-        lines.push(line)
-        line = word
-      } else line = test
-    }
-    if (line) lines.push(line)
-    return lines
+// Envoie les deux emails une seule fois par composition (emails_sent_at).
+// Renvoie true si l'email récapitulatif du couple est bien parti.
+async function sendCompositionEmails(
+  admin: ReturnType<typeof createClient>,
+  compositionId: string,
+  recap: ReturnType<typeof buildRecap>,
+): Promise<boolean> {
+  const { data: comp, error } = await admin
+    .from('compositions')
+    .select('emails_sent_at')
+    .eq('id', compositionId)
+    .single()
+  if (error) throw new Error(`lecture emails_sent_at : ${error.message}`)
+  if (comp?.emails_sent_at) {
+    console.warn(`[emails] déjà envoyés pour ${compositionId} : rien n'est renvoyé`)
+    return true
   }
 
-  ensure(26)
-  center('VOTRE MENU', sans, 11, accent)
-  y -= 34
-  ensure(30)
-  center(data.coupleNames, serifBold, 28)
-  y -= 22
-  const sub = [
-    data.weddingDate ? formatDate(data.weddingDate) : '',
-    `${data.guestCount} convives`,
-    data.formuleName,
-  ]
+  const apiKey = env('RESEND_API_KEY')
+  const from = env('FROM_EMAIL')
+  if (!apiKey || !from) {
+    console.error('[emails] RESEND_API_KEY ou FROM_EMAIL manquant : aucun email envoyé')
+    return false
+  }
+
+  let pdfBase64: string | null = null
+  try {
+    pdfBase64 = encodeBase64(await buildPdf(recap))
+  } catch (e) {
+    console.error('[emails] génération du PDF impossible, envoi sans pièce jointe :', e)
+  }
+
+  const traiteurTo = env('TRAITEUR_EMAIL')
+    .split(',')
+    .map((s) => s.trim())
     .filter(Boolean)
-    .join('  ·  ')
-  center(sub, sans, 12, muted)
-  y -= 34
-
-  for (const step of data.steps) {
-    const chosen = data.items
-      .filter((it) => it.step_id === step.id && (data.selections[it.id] ?? 0) > 0)
-      .sort((a, b) => a.position - b.position)
-    if (chosen.length === 0) continue
-
-    ensure(28)
-    center(step.title.toUpperCase(), sans, 10, muted)
-    y -= 20
-    for (const it of chosen) {
-      const suffix = it.supplement > 0 ? ` (+ ${eur.format(it.supplement)}/pers)` : ''
-      ensure(20)
-      center(`${it.name}${suffix}`, serif, 15, ink)
-      y -= 18
-      if (it.description) {
-        for (const line of wrap(it.description, sans, 10)) {
-          ensure(14)
-          center(line, sans, 10, muted)
-          y -= 13
-        }
-      }
-      y -= 8
-    }
-    y -= 12
+  let traiteurOk = false
+  if (traiteurTo.length) {
+    const t = traiteurEmail(recap)
+    traiteurOk = await sendEmail({
+      apiKey,
+      from,
+      to: traiteurTo,
+      replyTo: recap.email, // le traiteur répond directement au couple
+      subject: t.subject,
+      html: t.html,
+      pdfBase64,
+    })
+  } else {
+    console.error('[emails] TRAITEUR_EMAIL absent : notification traiteur non envoyée')
   }
 
-  if (data.options.length) {
-    ensure(28)
-    center('OPTIONS', sans, 10, muted)
-    y -= 20
-    for (const o of data.options) {
-      const p =
-        o.price_unit === 'par_personne'
-          ? `${eur.format(o.price)}/pers`
-          : `${eur.format(o.price)} forfait`
-      ensure(20)
-      center(`${o.name} (${p})`, serif, 15, ink)
-      y -= 22
-    }
-    y -= 8
-  }
-
-  ensure(80)
-  y -= 6
-  page.drawLine({
-    start: { x: margin, y },
-    end: { x: W - margin, y },
-    thickness: 0.5,
-    color: rgb(0.91, 0.87, 0.81),
+  const c = coupleEmail(recap)
+  const coupleOk = await sendEmail({
+    apiKey,
+    from,
+    to: recap.email,
+    replyTo: env('REPLY_TO_EMAIL') || undefined,
+    subject: c.subject,
+    html: c.html,
+    pdfBase64,
   })
-  y -= 24
-  center(`${eur.format(data.perPerson)} par personne x ${data.guestCount} convives`, sans, 11, muted)
-  y -= 26
-  center(clean(eur.format(data.total)), serifBold, 22, ink)
-  y -= 24
-  center('Estimation indicative - votre traiteur J&J vous confirmera le devis definitif.', sans, 9, muted)
 
-  return await doc.save()
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  if (traiteurOk && coupleOk) {
+    const { error: markError } = await admin
+      .from('compositions')
+      .update({ emails_sent_at: new Date().toISOString() })
+      .eq('id', compositionId)
+    if (markError) console.error(`[emails] marquage emails_sent_at (${compositionId}) :`, markError)
+  }
+  return coupleOk
 }

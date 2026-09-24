@@ -2,7 +2,15 @@ import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { GUESTS_MAX, GUESTS_MIN, validateCoupleInfo } from '@core/validation'
 import { useComposition } from '../context/CompositionContext'
+
+// Date du jour (heure locale) au format AAAA-MM-JJ, pour le champ date.
+function todayLocalIso(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 
 export default function AccueilPage() {
   const navigate = useNavigate()
@@ -18,13 +26,12 @@ export default function AccueilPage() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const guests = parseInt(guestCount, 10)
+    const guests = Number(guestCount)
 
-    if (!coupleNames.trim()) return setError('Indiquez vos prénoms.')
-    if (!email.includes('@')) return setError('Indiquez un email valide.')
-    if (!Number.isFinite(guests) || guests < 1) {
-      return setError('Indiquez le nombre de convives.')
-    }
+    // Mêmes règles que le serveur (noyau partagé) : le couple est prévenu
+    // dès l'accueil plutôt qu'au moment d'envoyer son menu.
+    const errors = validateCoupleInfo({ coupleNames, email, weddingDate, guestCount: guests })
+    if (errors.length > 0) return setError(errors[0])
 
     setCouple({
       coupleNames: coupleNames.trim(),
@@ -65,6 +72,7 @@ export default function AccueilPage() {
           <Field label="Date du mariage">
             <input
               type="date"
+              min={todayLocalIso()}
               value={weddingDate}
               onChange={(e) => setWeddingDate(e.target.value)}
               className="input"
@@ -74,7 +82,8 @@ export default function AccueilPage() {
           <Field label="Nombre de convives">
             <input
               type="number"
-              min={1}
+              min={GUESTS_MIN}
+              max={GUESTS_MAX}
               value={guestCount}
               onChange={(e) => setGuestCount(e.target.value)}
               placeholder="120"
