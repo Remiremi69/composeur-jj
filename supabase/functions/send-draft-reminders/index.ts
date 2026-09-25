@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       .limit(MAX_PER_RUN)
     if (error) throw new Error(`recherche des brouillons : ${error.message}`)
 
-    const { data: steps, error: stepsError } = await admin.from('steps').select('slug, title')
+    const { data: steps, error: stepsError } = await admin.from('steps').select('slug, title, group_slug, group_title')
     if (stepsError) throw new Error(`lecture des étapes : ${stepsError.message}`)
 
     let sent = 0

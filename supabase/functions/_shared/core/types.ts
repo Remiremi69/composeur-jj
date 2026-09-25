@@ -16,6 +16,11 @@ export interface Step {
   rule_min: number | null
   rule_max: number | null
   unit_label: string | null
+  // Lot 3 — parcours
+  nav_title?: string | null // nom court (frise) ; repli sur title
+  group_slug?: string | null // plusieurs étapes sur un même écran
+  group_title?: string | null // titre de l'écran partagé
+  group_nav_title?: string | null // nom court de l'écran partagé
 }
 
 // Surcharge de règle par formule : pour une étape donnée (slug), impose un

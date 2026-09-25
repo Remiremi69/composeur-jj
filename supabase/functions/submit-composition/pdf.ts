@@ -121,6 +121,25 @@ export async function buildPdf(recap: RecapData): Promise<Uint8Array> {
     y -= 8
   }
 
+  // Déjà compris dans la formule (étapes sans choix).
+  if (recap.included.length) {
+    ensure(28)
+    center('DÉJÀ COMPRIS DANS VOTRE FORMULE', sans, 10, muted)
+    y -= 20
+    for (const group of recap.included) {
+      ensure(18)
+      center(group.title, sans, 9, muted)
+      y -= 15
+      for (const it of group.items) {
+        ensure(16)
+        center(it.name, serif, 13, ink)
+        y -= 16
+      }
+      y -= 6
+    }
+    y -= 8
+  }
+
   // Estimation : prix par personne en avant, total en dessous.
   const { estimate } = recap
   separator()

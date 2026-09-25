@@ -52,18 +52,23 @@ export interface CoupleInfoInput {
   guestCount?: unknown
 }
 
-// Vérifie les informations saisies à l'accueil. Retourne la liste des erreurs.
-export function validateCoupleInfo(input: CoupleInfoInput, now: Date = new Date()): string[] {
-  const errors: string[] = []
+export type CoupleField = 'coupleNames' | 'email' | 'guestCount' | 'weddingDate'
+
+// Erreurs de l'accueil, par champ (pour les afficher sous chaque champ).
+export function coupleInfoFieldErrors(
+  input: CoupleInfoInput,
+  now: Date = new Date(),
+): Partial<Record<CoupleField, string>> {
+  const errors: Partial<Record<CoupleField, string>> = {}
 
   if (typeof input.coupleNames !== 'string' || input.coupleNames.trim() === '') {
-    errors.push('Indiquez vos prénoms.')
+    errors.coupleNames = 'Indiquez vos prénoms.'
   } else if (input.coupleNames.trim().length > MAX_NAMES_LENGTH) {
-    errors.push(`Vos prénoms ne doivent pas dépasser ${MAX_NAMES_LENGTH} caractères.`)
+    errors.coupleNames = `Vos prénoms ne doivent pas dépasser ${MAX_NAMES_LENGTH} caractères.`
   }
 
   if (!isValidEmail(input.email)) {
-    errors.push('Indiquez un email valide.')
+    errors.email = 'Indiquez un email valide.'
   }
 
   if (
@@ -72,18 +77,32 @@ export function validateCoupleInfo(input: CoupleInfoInput, now: Date = new Date(
     input.guestCount < GUESTS_MIN ||
     input.guestCount > GUESTS_MAX
   ) {
-    errors.push(`Le nombre de convives doit être compris entre ${GUESTS_MIN} et ${GUESTS_MAX}.`)
+    errors.guestCount = `Le nombre de convives doit être compris entre ${GUESTS_MIN} et ${GUESTS_MAX}.`
   }
 
   if (!isBlank(input.weddingDate)) {
     if (typeof input.weddingDate !== 'string' || !isValidIsoDate(input.weddingDate)) {
-      errors.push('La date du mariage est invalide.')
+      errors.weddingDate = 'La date du mariage est invalide.'
     } else if (input.weddingDate < todayIso(now)) {
-      errors.push('La date du mariage est déjà passée.')
+      errors.weddingDate = 'La date du mariage est déjà passée.'
     }
   }
 
   return errors
+}
+
+// Vérifie les informations saisies à l'accueil. Retourne la liste des erreurs.
+export function validateCoupleInfo(input: CoupleInfoInput, now: Date = new Date()): string[] {
+  return Object.values(coupleInfoFieldErrors(input, now)) as string[]
+}
+
+// Vrai si la date (valide, à venir) tombe dans les `months` prochains mois :
+// on invite alors le couple à appeler pour vérifier les disponibilités.
+export function isDateSoon(iso: unknown, now: Date = new Date(), months = 3): boolean {
+  if (typeof iso !== 'string' || !isValidIsoDate(iso) || iso < todayIso(now)) return false
+  const limit = new Date(now)
+  limit.setUTCMonth(limit.getUTCMonth() + months)
+  return iso < limit.toISOString().slice(0, 10)
 }
 
 // Normalise un numéro de téléphone. Numéros français → +33XXXXXXXXX
@@ -121,33 +140,40 @@ export interface ContactInfoInput {
   message?: unknown
 }
 
-// Vérifie les informations « Pour vous recontacter » (page récap).
-export function validateContactInfo(input: ContactInfoInput): string[] {
-  const errors: string[] = []
+export type ContactField = 'phone' | 'venue' | 'dietaryNotes' | 'message'
+
+// Erreurs « Pour vous recontacter », par champ.
+export function contactInfoFieldErrors(input: ContactInfoInput): Partial<Record<ContactField, string>> {
+  const errors: Partial<Record<ContactField, string>> = {}
 
   if (normalizePhone(input.phone) === null) {
-    errors.push('Indiquez un numéro de téléphone valide (ex. 06 12 34 56 78).')
+    errors.phone = 'Indiquez un numéro de téléphone valide (ex. 06 12 34 56 78).'
   }
 
   if (typeof input.venue !== 'string' || input.venue.trim() === '') {
-    errors.push('Indiquez le lieu de réception.')
+    errors.venue = 'Indiquez le lieu de réception.'
   } else if (input.venue.trim().length > MAX_VENUE_LENGTH) {
-    errors.push(`Le lieu de réception ne doit pas dépasser ${MAX_VENUE_LENGTH} caractères.`)
+    errors.venue = `Le lieu de réception ne doit pas dépasser ${MAX_VENUE_LENGTH} caractères.`
   }
 
   if (!isBlank(input.dietaryNotes)) {
     if (typeof input.dietaryNotes !== 'string' || input.dietaryNotes.length > MAX_DIETARY_LENGTH) {
-      errors.push(`Les allergies et régimes ne doivent pas dépasser ${MAX_DIETARY_LENGTH} caractères.`)
+      errors.dietaryNotes = `Les allergies et régimes ne doivent pas dépasser ${MAX_DIETARY_LENGTH} caractères.`
     }
   }
 
   if (!isBlank(input.message)) {
     if (typeof input.message !== 'string' || input.message.length > MAX_MESSAGE_LENGTH) {
-      errors.push(`Le message ne doit pas dépasser ${MAX_MESSAGE_LENGTH} caractères.`)
+      errors.message = `Le message ne doit pas dépasser ${MAX_MESSAGE_LENGTH} caractères.`
     }
   }
 
   return errors
+}
+
+// Vérifie les informations « Pour vous recontacter » (page récap).
+export function validateContactInfo(input: ContactInfoInput): string[] {
+  return Object.values(contactInfoFieldErrors(input)) as string[]
 }
 
 // Message lisible quand la règle d'une étape n'est pas respectée.

@@ -40,11 +40,12 @@ supabase/
     get-draft/                    Reprise d'un brouillon / menu envoyé en lecture seule
     send-draft-reminders/         Relance des menus abandonnés (appelée par pg_cron)
     draft-opt-out/                Désinscription des relances
+    public-config/                Réglages publics lus par le front (téléphone de J&J)
   migrations/                     Schéma de la base (source de vérité), migrations horodatées
   cron/                           Tâche horaire de relance, à activer à la main (contient le secret)
   seed.sql                        Catalogue de référence (sans aucune composition) pour le local
   legacy/                         Anciens scripts SQL — archives, NE PAS EXÉCUTER
-tests/                            Tests vitest (noyau + emails)
+tests/                            Tests vitest (noyau, emails, contrastes ; tests/ui : parcours sous jsdom)
 docs/DEPLOY.md                    Actions manuelles de mise en production, lot par lot
 docs/BACKLOG.md                   Points à traiter dans un lot ultérieur
 ```
@@ -58,6 +59,8 @@ côté navigateur et côté serveur :
   et surcharges par formule (`formules.step_rules`, ex. 4 pièces pour Signature) ;
 - `pricing.ts` : `computeEstimate()` — le prix par personne tout compris
   (`perPersonAllIn`) et le total ;
+- `journey.ts` : le parcours — écrans (étapes regroupées par `group_slug`,
+  étapes `free` retirées), étapes accessibles, redirections ;
 - `validation.ts` : `validateComposition()` — tout ce que le serveur vérifie
   avant d'enregistrer (formule active, plats autorisés, règles, 20 à 400
   convives, email, date…), avec des messages en français.
@@ -95,6 +98,21 @@ Le front l'importe via l'alias `@core/*` (voir `tsconfig.app.json` et
   consentement à l'envoi ; provenance (`?source=`, `utm_*`) capturée à
   l'arrivée.
 
+### Parcours (lot 3)
+
+- **Une route par écran** : `/composer/:slug` (slug d'étape, ou `group_slug`
+  pour un écran groupé comme `assiette`). `/composer` renvoie à la dernière
+  étape atteinte. Une étape pas encore accessible redirige vers la première
+  étape à compléter.
+- Tout est piloté par les données : `steps.nav_title` (frise),
+  `group_slug` / `group_title` / `group_nav_title` (écran partagé). Aucun slug
+  n'est écrit en dur dans les composants.
+- Les étapes `free` ne sont pas des écrans : leur contenu est affiché dans
+  « Déjà compris dans votre formule ».
+- Catalogue chargé une seule fois (`src/context/CatalogContext.tsx`).
+- Accessibilité : contrastes ≥ 4,5:1 vérifiés par `tests/contrast.test.ts`,
+  focus visible, animations réduites si le système le demande.
+
 ---
 
 ## Lancer en local
@@ -129,7 +147,7 @@ enregistrée). Pour faire pointer le front sur la base locale, créez un
 ## Tests
 
 ```bash
-npm test             # vitest : règles, prix, validation, échappement des emails
+npm test             # vitest : règles, prix, validation, parcours, emails, contrastes, navigation (jsdom)
 npm run build        # vérification TypeScript + build de production
 ```
 

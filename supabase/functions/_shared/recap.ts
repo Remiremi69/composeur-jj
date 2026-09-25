@@ -2,6 +2,7 @@
 // estimation serveur et (pour le traiteur) les infos de recontact.
 // Source unique pour le PDF, les emails et la page menu en lecture seule.
 
+import { freeSteps } from './core/journey.ts'
 import type { Estimate } from './core/pricing.ts'
 import type { Catalog, Formule, Selections } from './core/types.ts'
 
@@ -35,6 +36,8 @@ export interface RecapData {
   formuleName: string
   sections: { title: string; lines: RecapLine[] }[]
   options: RecapOption[]
+  // « Déjà compris dans votre formule » : étapes sans choix (boissons, café…).
+  included: { title: string; items: { name: string; description: string | null }[] }[]
   estimate: Estimate
   // Données personnelles : absentes de la page menu partageable.
   contact: RecapContact | null
@@ -80,6 +83,16 @@ export function buildRecap(
       priceUnit: o.price_unit,
     }))
 
+  const included = freeSteps(formule, catalog.steps)
+    .map((step) => ({
+      title: step.title,
+      items: catalog.items
+        .filter((it) => it.step_id === step.id && it.is_active === true)
+        .sort((a, b) => a.position - b.position)
+        .map((it) => ({ name: it.name, description: it.description })),
+    }))
+    .filter((g) => g.items.length > 0)
+
   return {
     coupleNames: input.coupleNames.trim(),
     weddingDate: input.weddingDate || null,
@@ -87,6 +100,7 @@ export function buildRecap(
     formuleName: formule?.name ?? '',
     sections,
     options,
+    included,
     estimate,
     contact: input.contact ?? null,
   }

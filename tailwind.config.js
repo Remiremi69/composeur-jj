@@ -14,6 +14,7 @@ export default {
         accent: 'var(--color-accent)',
         'accent-dark': 'var(--color-accent-dark)',
         line: 'var(--color-line)',
+        error: 'var(--color-error)',
       },
       fontFamily: {
         display: 'var(--font-display)',

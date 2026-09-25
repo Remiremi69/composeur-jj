@@ -27,6 +27,9 @@ function recap(overrides: Partial<RecapData> = {}): RecapData {
       { name: 'Option <i>', price: 250, priceUnit: 'forfait' },
       { name: 'Buffet des gâteaux', price: null, priceUnit: 'forfait' },
     ],
+    included: [
+      { title: 'Vos boissons', items: [{ name: 'Citronnade <maison>', description: null }] },
+    ],
     estimate: {
       basePerPerson: 130,
       supplementsPerPerson: 3,
@@ -85,6 +88,16 @@ describe('emails de soumission : prix et recontact', () => {
     expect(total).toBeGreaterThan(perPerson)
     expect(html).toContain('par personne, tout compris')
     expect(html).toContain('dont 250 € d’options au forfait')
+  })
+
+  it('encart « Déjà compris dans votre formule », contenu échappé', () => {
+    for (const build of [coupleEmail, traiteurEmail]) {
+      const { html } = build(recap())
+      expect(html).toContain('Déjà compris dans votre formule')
+      expect(html).toContain('Vos boissons')
+      expect(html).toContain('Citronnade &lt;maison&gt;')
+    }
+    expect(coupleEmail(recap({ included: [] })).html).not.toContain('Déjà compris')
   })
 
   it('option sans prix affichée « Sur demande »', () => {
@@ -147,6 +160,15 @@ describe('email de relance', () => {
     expect(stepLabelOf('recap', steps)).toBe('le récapitulatif')
     expect(stepLabelOf('inconnue', steps)).toBeNull()
     expect(stepLabelOf(null, steps)).toBeNull()
+  })
+
+  it('libellé d’un écran groupé (lot 3)', () => {
+    const steps = [
+      { slug: 'plat', title: 'Votre plat', group_slug: 'assiette', group_title: 'Votre assiette' },
+      { slug: 'legume', title: 'Votre légume', group_slug: 'assiette', group_title: 'Votre assiette' },
+    ]
+    expect(stepLabelOf('assiette', steps)).toBe('« Votre assiette »')
+    expect(stepLabelOf('plat', steps)).toBe('« Votre plat »')
   })
 
   it('lien tel: sans espaces', () => {

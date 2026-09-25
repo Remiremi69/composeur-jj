@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
+import { freeSteps } from '@core/journey'
 import { formatPrice } from '../lib/format'
+import { itemsForStep } from '../lib/rules'
+import IncludedInFormule from '../components/IncludedInFormule'
 import InclusionsPanel from '../components/InclusionsPanel'
+import { FormulesSkeleton } from '../components/Skeletons'
 
 export default function FormulePage() {
   const navigate = useNavigate()
   const { couple, formuleId, setFormule, setCurrentStep } = useComposition()
-  const { formules, inclusions, loading, error } = useCatalog()
+  const { formules, steps, items, inclusions, loading, error } = useCatalog()
 
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
@@ -21,7 +25,7 @@ export default function FormulePage() {
   }, [setCurrentStep])
 
   if (!couple) return null
-  if (loading) return <Centered text="Chargement des formules…" />
+  if (loading) return <FormulesSkeleton />
   if (error) return <Centered text={`Erreur : ${error}`} />
 
   function choose(id: string) {
@@ -68,6 +72,22 @@ export default function FormulePage() {
 
               {/* Le menu, présenté par sections (façon carte de restaurant) */}
               <FormuleMenu lines={f.highlights} />
+
+              {/* Étapes sans choix : déjà comprises dans cette formule */}
+              <div className="mt-5">
+                <IncludedInFormule
+                  collapsible
+                  groups={freeSteps(f, steps)
+                    .map((step) => ({
+                      title: step.title,
+                      items: itemsForStep(step, items).map((it) => ({
+                        name: it.name,
+                        description: it.description,
+                      })),
+                    }))
+                    .filter((g) => g.items.length > 0)}
+                />
+              </div>
 
               {/* Inclus dans toutes les formules */}
               <p className="mt-5 border-t border-line pt-4 text-center text-xs text-muted">

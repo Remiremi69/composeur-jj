@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
@@ -7,18 +6,23 @@ import {
   MAX_DIETARY_LENGTH,
   MAX_MESSAGE_LENGTH,
   MAX_VENUE_LENGTH,
+  contactInfoFieldErrors,
   normalizePhone,
-  validateContactInfo,
+  type ContactField,
 } from '@core/validation'
+import { buildScreens, freeSteps } from '@core/journey'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { itemsForStep } from '../lib/rules'
 import { computeEstimate } from '../lib/pricing'
 import { formatDate, formatPhone, optionPriceLabel } from '../lib/format'
 import { submitComposition } from '../lib/submit'
+import FormField from '../components/FormField'
+import IncludedInFormule from '../components/IncludedInFormule'
 import InclusionsPanel from '../components/InclusionsPanel'
 import MenuView from '../components/MenuView'
 import PriceSummary from '../components/PriceSummary'
+import { MenuSkeleton } from '../components/Skeletons'
 
 // Clé publique Cloudflare Turnstile : le widget n'apparaît que si elle est définie.
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
@@ -42,6 +46,8 @@ export default function RecapPage() {
   const { formules, steps, items, options, inclusions, loading } = useCatalog()
   const [submitting, setSubmitting] = useState(false)
   const [submitErrors, setSubmitErrors] = useState<string[]>([])
+  // Erreurs du bloc « Pour vous recontacter », affichées sous chaque champ.
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ContactField, string>>>({})
   // Anti-spam : champ piège (toujours vide pour un humain), horodatage de
   // repli si le début de composition n'est pas connu, jeton Turnstile.
   const [website, setWebsite] = useState('')
@@ -64,46 +70,62 @@ export default function RecapPage() {
     setSubmitErrors([])
   }, [contact])
 
-  if (!couple || !formuleId) return null
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted">
-        Chargement…
-      </div>
-    )
+  // Saisie d'un champ : on efface l'erreur de CE champ uniquement.
+  function update(field: ContactField, value: string) {
+    setContact({ [field]: value })
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
   }
 
+  if (!couple || !formuleId) return null
+  if (loading) return <MenuSkeleton />
+
   const formule = formules.find((f) => f.id === formuleId) ?? null
-  const activeSteps = formule
-    ? steps.filter((s) => formule.included_steps.includes(s.slug))
-    : steps
   // Même calcul que le serveur : le prix affiché est le prix enregistré.
   const estimate = computeEstimate(formule, items, selections, options, optionIds, couple.guestCount)
   const needsTurnstile = Boolean(TURNSTILE_SITE_KEY)
 
-  const sections = activeSteps
+  // Une section par étape, avec un lien « Modifier » vers son écran.
+  const sections = buildScreens(formule, steps).flatMap((screen) =>
+    screen.steps
+      .map((step) => ({
+        title: step.title,
+        editTo: `/composer/${screen.slug}`,
+        lines: itemsForStep(step, items)
+          .filter((it) => (selections[it.id] ?? 0) > 0)
+          .map((it) => ({
+            name: it.name,
+            description: it.description,
+            supplement: it.supplement,
+            quantity: selections[it.id],
+          })),
+      }))
+      .filter((s) => s.lines.length > 0),
+  )
+  // Étapes sans choix : « Déjà compris dans votre formule ».
+  const included = freeSteps(formule, steps)
     .map((step) => ({
       title: step.title,
-      lines: itemsForStep(step, items)
-        .filter((it) => (selections[it.id] ?? 0) > 0)
-        .map((it) => ({
-          name: it.name,
-          description: it.description,
-          supplement: it.supplement,
-          quantity: selections[it.id],
-        })),
+      items: itemsForStep(step, items).map((it) => ({ name: it.name, description: it.description })),
     }))
-    .filter((s) => s.lines.length > 0)
+    .filter((g) => g.items.length > 0)
   const chosenOptions = options
     .filter((o) => optionIds.includes(o.id))
     .map((o) => ({ name: o.name, priceLabel: optionPriceLabel(o) }))
 
   async function handleSubmit() {
     if (!couple || !formuleId) return
-    // Mêmes règles que le serveur, vérifiées avant d'envoyer.
-    const contactErrors = validateContactInfo(contact)
-    if (contactErrors.length > 0) {
-      setSubmitErrors(contactErrors)
+    // Mêmes règles que le serveur, vérifiées avant d'envoyer (sous chaque champ).
+    const errors = contactInfoFieldErrors(contact)
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      // Place le curseur sur le premier champ en erreur.
+      const first = (['phone', 'venue', 'dietaryNotes', 'message'] as const).find((f) => errors[f])
+      document.querySelector<HTMLElement>(`[data-field="${first}"]`)?.focus()
       return
     }
     setSubmitting(true)
@@ -169,8 +191,15 @@ export default function RecapPage() {
           <span className="h-px w-12 bg-line" />
         </div>
 
-        {/* Le menu, étape par étape, puis les options */}
-        <MenuView sections={sections} options={chosenOptions} />
+        {/* Le menu, étape par étape (avec « Modifier »), puis les options */}
+        <MenuView sections={sections} options={chosenOptions} optionsEditTo="/options" />
+
+        {/* Déjà compris dans la formule (étapes sans choix) */}
+        {included.length > 0 && (
+          <div className="mt-8">
+            <IncludedInFormule groups={included} />
+          </div>
+        )}
 
         {/* Estimation : prix par personne en grand, détail dépliable */}
         <div className="mt-10">
@@ -191,48 +220,70 @@ export default function RecapPage() {
             Votre traiteur vous rappellera pour affiner votre menu avec vous.
           </p>
           <div className="mt-5 flex flex-col gap-4">
-            <Field label="Téléphone" required>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                value={contact.phone}
-                onChange={(e) => setContact({ phone: e.target.value })}
-                onBlur={tidyPhone}
-                placeholder="06 12 34 56 78"
-                className="input"
-              />
-            </Field>
-            <Field label="Lieu de réception" required hint="Nom du domaine ou commune">
-              <input
-                type="text"
-                value={contact.venue}
-                maxLength={MAX_VENUE_LENGTH}
-                onChange={(e) => setContact({ venue: e.target.value })}
-                placeholder="Domaine des Tilleuls, Saint-Cyr"
-                className="input"
-              />
-            </Field>
-            <Field label="Allergies et régimes">
-              <textarea
-                rows={3}
-                value={contact.dietaryNotes}
-                maxLength={MAX_DIETARY_LENGTH}
-                onChange={(e) => setContact({ dietaryNotes: e.target.value })}
-                placeholder="3 végétariens, 1 sans gluten, 2 enfants"
-                className="input resize-y"
-              />
-            </Field>
-            <Field label="Message">
-              <textarea
-                rows={3}
-                value={contact.message}
-                maxLength={MAX_MESSAGE_LENGTH}
-                onChange={(e) => setContact({ message: e.target.value })}
-                placeholder="Une question, une envie particulière…"
-                className="input resize-y"
-              />
-            </Field>
+            <FormField label="Téléphone" required error={fieldErrors.phone}>
+              {(a11y) => (
+                <input
+                  {...a11y}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={contact.phone}
+                  data-field="phone"
+                  onChange={(e) => update('phone', e.target.value)}
+                  onBlur={tidyPhone}
+                  placeholder="06 12 34 56 78"
+                  className="input"
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Lieu de réception"
+              required
+              hint="Nom du domaine ou commune"
+              error={fieldErrors.venue}
+            >
+              {(a11y) => (
+                <input
+                  {...a11y}
+                  type="text"
+                  autoComplete="off"
+                  value={contact.venue}
+                  maxLength={MAX_VENUE_LENGTH}
+                  data-field="venue"
+                  onChange={(e) => update('venue', e.target.value)}
+                  placeholder="Domaine des Tilleuls, Saint-Cyr"
+                  className="input"
+                />
+              )}
+            </FormField>
+            <FormField label="Allergies et régimes" optional error={fieldErrors.dietaryNotes}>
+              {(a11y) => (
+                <textarea
+                  {...a11y}
+                  rows={3}
+                  value={contact.dietaryNotes}
+                  maxLength={MAX_DIETARY_LENGTH}
+                  data-field="dietaryNotes"
+                  onChange={(e) => update('dietaryNotes', e.target.value)}
+                  placeholder="3 végétariens, 1 sans gluten, 2 enfants"
+                  className="input resize-y"
+                />
+              )}
+            </FormField>
+            <FormField label="Message" optional error={fieldErrors.message}>
+              {(a11y) => (
+                <textarea
+                  {...a11y}
+                  rows={3}
+                  value={contact.message}
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  data-field="message"
+                  onChange={(e) => update('message', e.target.value)}
+                  placeholder="Une question, une envie particulière…"
+                  className="input resize-y"
+                />
+              )}
+            </FormField>
           </div>
         </section>
 
@@ -258,9 +309,9 @@ export default function RecapPage() {
           {submitErrors.length > 0 && (
             <div
               role="alert"
-              className="rounded-card border border-accent/40 bg-surface p-4 text-left text-sm text-ink"
+              className="rounded-card border border-error/40 bg-surface p-4 text-left text-sm text-ink"
             >
-              <p className="font-medium text-accent">Votre menu n'a pas pu être envoyé :</p>
+              <p className="font-medium text-error">Votre menu n'a pas pu être envoyé :</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {submitErrors.map((err) => (
                   <li key={err}>{err}</li>
@@ -316,28 +367,5 @@ export default function RecapPage() {
         </div>
       </motion.div>
     </div>
-  )
-}
-
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string
-  required?: boolean
-  hint?: string
-  children: ReactNode
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-ink">
-        {label}
-        {required ? <span className="text-accent"> *</span> : <span className="font-normal text-muted"> (facultatif)</span>}
-      </span>
-      {children}
-      {hint && <span className="text-xs text-muted">{hint}</span>}
-    </label>
   )
 }

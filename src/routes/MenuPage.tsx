@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { optionPriceLabel } from '@core/format'
 import BrandHeader from '../components/BrandHeader'
+import IncludedInFormule from '../components/IncludedInFormule'
+import { MenuSkeleton } from '../components/Skeletons'
 import MenuView from '../components/MenuView'
 import PriceSummary from '../components/PriceSummary'
 import { fetchDraft, type ReadOnlyMenu } from '../lib/drafts'
@@ -40,11 +42,11 @@ export default function MenuPage() {
     }
   }, [token, navigate])
 
+  if (state === 'loading') return <MenuSkeleton />
   if (state !== 'ready' || !menu) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
         <BrandHeader />
-        {state === 'loading' && <p className="mt-6 text-muted">Chargement du menu…</p>}
         {state === 'invalid' && <p className="mt-6 text-muted">Ce lien n’est plus valide.</p>}
         {state === 'error' && (
           <p className="mt-6 text-muted">Impossible d’afficher ce menu pour le moment. Réessayez dans un instant.</p>
@@ -87,6 +89,12 @@ export default function MenuPage() {
           priceLabel: optionPriceLabel({ price: o.price, price_unit: o.priceUnit }),
         }))}
       />
+
+      {menu.included && menu.included.length > 0 && (
+        <div className="mt-8">
+          <IncludedInFormule groups={menu.included} />
+        </div>
+      )}
 
       <div className="mt-10">
         <PriceSummary estimate={menu.estimate} guestCount={menu.guestCount} formuleName={menu.formuleName} />

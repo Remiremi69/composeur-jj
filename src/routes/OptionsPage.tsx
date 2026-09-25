@@ -1,14 +1,17 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { buildScreens } from '@core/journey'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
-import { STEP_EMBEDDED_CATEGORIES } from '../lib/optionsConfig'
 import { computeEstimate } from '../lib/pricing'
 import { formatPrice } from '../lib/format'
 import OptionToggle from '../components/OptionToggle'
 import SaveIndicator from '../components/SaveIndicator'
+import { ListSkeleton } from '../components/Skeletons'
 
+// Libellés des catégories d'options (table figée : passage en données prévu,
+// cf. docs/BACKLOG.md).
 const CATEGORY_LABELS: Record<string, string> = {
   'bar-de-nuit': 'Bar de nuit',
   'en-cas': 'En-cas de fin de soirée',
@@ -20,8 +23,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default function OptionsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromRecap = (location.state as { fromRecap?: boolean } | null)?.fromRecap === true
   const { couple, formuleId, selections, optionIds, toggleOption, setCurrentStep } = useComposition()
-  const { formules, items, options, loading, error } = useCatalog()
+  const { formules, steps, items, options, loading, error } = useCatalog()
 
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
@@ -34,16 +39,21 @@ export default function OptionsPage() {
   }, [setCurrentStep])
 
   if (!couple || !formuleId) return null
-  if (loading) return <Centered text="Chargement des options…" />
+  if (loading) return <ListSkeleton />
   if (error) return <Centered text={`Erreur : ${error}`} />
 
-  // Options finales : on exclut celles affichées dans une étape (ex : fromage).
-  const finalOptions = options.filter((o) => !STEP_EMBEDDED_CATEGORIES.includes(o.category))
+  // Options finales : celles qui ne sont rattachées à aucune étape (une option
+  // dont la catégorie porte le nom d'une étape s'affiche dans cette étape).
+  const stepSlugs = new Set(steps.map((s) => s.slug))
+  const finalOptions = options.filter((o) => !stepSlugs.has(o.category))
   const categories: string[] = []
   for (const o of finalOptions) if (!categories.includes(o.category)) categories.push(o.category)
   // Prix par personne en direct, toutes options comprises.
   const formule = formules.find((f) => f.id === formuleId) ?? null
   const estimate = computeEstimate(formule, items, selections, options, optionIds, couple.guestCount)
+  // « Retour » : la DERNIÈRE étape de composition.
+  const screens = buildScreens(formule, steps)
+  const lastScreen = screens[screens.length - 1]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -77,10 +87,10 @@ export default function OptionsPage() {
 
       {/* Barre d'action */}
       <div className="sticky bottom-0 border-t border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-5 py-3">
+        <div className="mx-auto flex max-w-2xl flex-wrap items-center gap-3 px-5 py-3">
           <button
             type="button"
-            onClick={() => navigate('/composer')}
+            onClick={() => navigate(lastScreen ? `/composer/${lastScreen.slug}` : '/formule')}
             className="rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
           >
             Retour
@@ -95,7 +105,7 @@ export default function OptionsPage() {
             onClick={() => navigate('/recap')}
             className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-cream transition-colors hover:bg-accent-dark"
           >
-            Voir notre menu
+            {fromRecap ? 'Revenir au récapitulatif' : 'Voir notre menu'}
           </motion.button>
         </div>
       </div>

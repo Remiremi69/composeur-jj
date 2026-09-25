@@ -158,3 +158,26 @@ describe('validateComposition — options', () => {
     expect(errorsOf(validPayload({ optionIds: ['o-bar', 'o-bar'] }))).toContain(msg)
   })
 })
+
+describe('erreurs par champ et date proche', () => {
+  it('range chaque erreur sous son champ', async () => {
+    const { coupleInfoFieldErrors, contactInfoFieldErrors } = await import('@core/validation')
+    expect(coupleInfoFieldErrors({ coupleNames: '', email: 'x', guestCount: 5, weddingDate: '2026-01-01' }, NOW)).toEqual({
+      coupleNames: 'Indiquez vos prénoms.',
+      email: 'Indiquez un email valide.',
+      guestCount: 'Le nombre de convives doit être compris entre 20 et 400.',
+      weddingDate: 'La date du mariage est déjà passée.',
+    })
+    expect(contactInfoFieldErrors({ phone: '06 71 17 06 73', venue: '' })).toEqual({
+      venue: 'Indiquez le lieu de réception.',
+    })
+  })
+
+  it('date à moins de 3 mois : avertissement (non bloquant)', async () => {
+    const { isDateSoon } = await import('@core/validation')
+    expect(isDateSoon('2026-11-15', NOW)).toBe(true)
+    expect(isDateSoon('2026-12-23', NOW)).toBe(false)
+    expect(isDateSoon('2026-09-21', NOW)).toBe(false) // passée : autre erreur
+    expect(isDateSoon('', NOW)).toBe(false)
+  })
+})

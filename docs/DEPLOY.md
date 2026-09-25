@@ -463,3 +463,140 @@ Utilisez **votre propre email** pour ces tests.
 delete from public.compositions where email = 'VOTRE_EMAIL';
 delete from public.submission_log;
 ```
+
+---
+
+## Lot 3 — Parcours
+
+### Ce qui change
+
+- **Une adresse par écran** (`/composer/format`, `/composer/assiette`…) : le
+  bouton retour du navigateur revient à l'écran précédent, un rafraîchissement
+  garde l'écran, et une frise d'étapes permet de revenir en arrière.
+- **Plat, féculent et légume sur un seul écran** « Votre assiette ».
+- Les étapes **sans choix** (boissons, grignotage, café…) ne sont plus des
+  écrans : leur contenu apparaît dans « Déjà compris dans votre formule »
+  (page des formules, récapitulatif, emails, PDF, page menu).
+- Récapitulatif : un lien **« Modifier »** par section.
+- Accueil : erreurs sous chaque champ, alerte « Date proche » avec le
+  téléphone de J&J.
+
+**Aucun nouveau secret, aucune nouvelle variable Vercel.** Le téléphone
+affiché à l'accueil est le secret `TRAITEUR_PHONE` du lot 2 (lu par la
+nouvelle fonction `public-config`).
+
+---
+
+### Étape 1 — Vérifier la CLI
+
+```bash
+cd C:\Users\mormo\Desktop\composeur-jj
+```
+```bash
+npx supabase migration list
+```
+
+Attendu : les trois premières migrations en **Local** et **Remote** ;
+`20260925155912` en **Local** uniquement.
+
+---
+
+### Étape 2 — Appliquer la migration
+
+```bash
+npx supabase db push --dry-run
+```
+
+Attendu : seule `20260925155912_parcours.sql`. Puis :
+
+```bash
+npx supabase db push
+```
+
+La migration ajoute 4 colonnes facultatives à `steps` (noms courts de la
+frise, regroupement « assiette ») : l'ancien site continue de fonctionner.
+
+---
+
+### Étape 3 — Déployer les fonctions (après l'étape 2, obligatoirement)
+
+```bash
+npx supabase functions deploy public-config
+```
+```bash
+npx supabase functions deploy submit-composition
+```
+```bash
+npx supabase functions deploy get-draft
+```
+```bash
+npx supabase functions deploy send-draft-reminders --no-verify-jwt
+```
+
+Chaque commande doit afficher « Deployed Functions ».
+
+> `send-draft-reminders` lit les nouvelles colonnes : ne la déployez **pas
+> avant** la migration, sinon la relance horaire échouerait.
+
+---
+
+### Étape 4 — Déployer le front
+
+Commitez puis poussez la branche `master` ; attendez **Ready** sur Vercel.
+
+---
+
+### Étape 5 — Checklist de tests en production
+
+Dans une fenêtre de navigation privée, sur https://composeur-jj.vercel.app :
+
+**Accueil**
+- [ ] Cliquer « Composer notre menu » sans rien remplir → un message rouge
+  **sous chaque champ**, le curseur va au premier champ en erreur.
+- [ ] Choisir une date dans moins de 3 mois → « Date proche : appelez-nous
+  pour vérifier nos disponibilités au +33 6 71 17 06 73 » (numéro cliquable
+  sur téléphone). Une date lointaine → pas de message.
+- [ ] Sur téléphone, le champ « Nombre de convives » ouvre le pavé numérique.
+
+**Formules**
+- [ ] Chaque formule a un encart dépliable « Déjà compris dans votre
+  formule » (boissons, grignotage, café… selon la formule).
+
+**Composition**
+- [ ] L'adresse change à chaque écran (`/composer/format`, …).
+- [ ] **Bouton retour du navigateur** → écran précédent (on ne sort plus
+  du parcours). Rafraîchir la page → on reste sur le même écran.
+- [ ] La frise en haut montre les étapes faites (✓), l'étape en cours et les
+  suivantes ; sur téléphone elle défile et reste centrée sur l'étape en cours.
+- [ ] « Votre assiette » : plat, féculent et légume sur le même écran ;
+  « Étape suivante » ne s'active qu'une fois les trois choisis.
+- [ ] Choisir plus que le maximum → message « Vous avez atteint vos … Retirez
+  un choix pour en sélectionner un autre. »,
+  la carte n'est pas grisée.
+- [ ] Bouton « i » d'une carte → fiche détaillée (photo, description,
+  allergènes) ; « Choisir » depuis la fiche.
+- [ ] Coller directement `/composer/dessert` dans un nouvel onglet sans avoir
+  composé → retour à la première étape à compléter.
+
+**Récapitulatif**
+- [ ] Encart « Déjà compris dans votre formule ».
+- [ ] « Modifier » à côté d'une section → l'écran concerné, avec un bouton
+  « Revenir au récapitulatif ».
+- [ ] Envoyer sans téléphone ni lieu → message rouge sous chacun des deux
+  champs.
+- [ ] Envoyer → les emails (traiteur et couple) et le PDF contiennent
+  « Déjà compris dans votre formule » ; la page `/menu/…` aussi.
+
+**Reprise**
+- [ ] Composer jusqu'à « Votre assiette », fermer l'onglet, rouvrir le lien
+  `/reprendre/…` (depuis la table `compositions` ou un email de relance) →
+  retour sur « Votre assiette ».
+
+---
+
+### Étape 6 — Nettoyage
+
+```sql
+delete from public.compositions where email = 'VOTRE_EMAIL';
+delete from public.submission_log;
+```

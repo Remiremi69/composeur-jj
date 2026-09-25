@@ -1,10 +1,18 @@
 import { useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Turnstile } from '@marsidev/react-turnstile'
-import { GUESTS_MAX, GUESTS_MIN, validateCoupleInfo } from '@core/validation'
+import {
+  GUESTS_MAX,
+  GUESTS_MIN,
+  coupleInfoFieldErrors,
+  isDateSoon,
+  type CoupleField,
+} from '@core/validation'
+import FormField from '../components/FormField'
 import { useComposition } from '../context/CompositionContext'
+import { useCatalog } from '../hooks/useCatalog'
 
 // Clé publique Cloudflare Turnstile : protège la création du brouillon
 // (qui peut donner lieu à un email de rappel). Widget absent si non définie.
@@ -20,6 +28,8 @@ function todayLocalIso(): string {
 export default function AccueilPage() {
   const navigate = useNavigate()
   const { couple, setCouple, startDraft } = useComposition()
+  // Numéro de J&J : même source que les relances (secret TRAITEUR_PHONE).
+  const { traiteurPhone } = useCatalog()
   // Jeton anti-robot pour la création du brouillon. Jamais bloquant : sans
   // jeton, le couple continue normalement (seule la sauvegarde est sautée).
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
@@ -30,7 +40,13 @@ export default function AccueilPage() {
     couple?.guestCount ? String(couple.guestCount) : '',
   )
   const [email, setEmail] = useState(couple?.email ?? '')
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Partial<Record<CoupleField, string>>>({})
+
+  // Modifier un champ efface son erreur (et seulement la sienne).
+  function update(field: CoupleField, set: (v: string) => void, value: string) {
+    set(value)
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -38,8 +54,15 @@ export default function AccueilPage() {
 
     // Mêmes règles que le serveur (noyau partagé) : le couple est prévenu
     // dès l'accueil plutôt qu'au moment d'envoyer son menu.
-    const errors = validateCoupleInfo({ coupleNames, email, weddingDate, guestCount: guests })
-    if (errors.length > 0) return setError(errors[0])
+    const found = coupleInfoFieldErrors({ coupleNames, email, weddingDate, guestCount: guests })
+    setErrors(found)
+    const first = (['coupleNames', 'weddingDate', 'guestCount', 'email'] as const).find((f) => found[f])
+    if (first) {
+      // Place le curseur sur le premier champ en erreur.
+      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`)
+      el?.focus()
+      return
+    }
 
     setCouple({
       coupleNames: coupleNames.trim(),
@@ -68,54 +91,97 @@ export default function AccueilPage() {
           connaissance.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-          <Field label="Vos prénoms">
-            <input
-              type="text"
-              value={coupleNames}
-              onChange={(e) => setCoupleNames(e.target.value)}
-              placeholder="Camille & Alex"
-              className="input"
-            />
-          </Field>
+        <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
+          <FormField label="Vos prénoms" required error={errors.coupleNames}>
+            {(a11y) => (
+              <input
+                {...a11y}
+                type="text"
+                autoComplete="name"
+                value={coupleNames}
+                data-field="coupleNames"
+                onChange={(e) => update('coupleNames', setCoupleNames, e.target.value)}
+                placeholder="Camille & Alex"
+                className="input"
+              />
+            )}
+          </FormField>
 
-          <Field label="Date du mariage">
-            <input
-              type="date"
-              min={todayLocalIso()}
-              value={weddingDate}
-              onChange={(e) => setWeddingDate(e.target.value)}
-              className="input"
-            />
-          </Field>
+          <FormField
+            label="Date du mariage"
+            optional
+            error={errors.weddingDate}
+            warning={
+              !errors.weddingDate && isDateSoon(weddingDate) ? (
+                <>
+                  Date proche : appelez-nous pour vérifier nos disponibilités
+                  {traiteurPhone ? (
+                    <>
+                      {' au '}
+                      <a
+                        href={`tel:${traiteurPhone.replace(/[^+\d]/g, '')}`}
+                        className="whitespace-nowrap font-medium text-accent underline underline-offset-2"
+                      >
+                        {traiteurPhone}
+                      </a>
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : undefined
+            }
+          >
+            {(a11y) => (
+              <input
+                {...a11y}
+                type="date"
+                autoComplete="off"
+                min={todayLocalIso()}
+                value={weddingDate}
+                data-field="weddingDate"
+                onChange={(e) => update('weddingDate', setWeddingDate, e.target.value)}
+                className="input"
+              />
+            )}
+          </FormField>
 
-          <Field label="Nombre de convives">
-            <input
-              type="number"
-              min={GUESTS_MIN}
-              max={GUESTS_MAX}
-              value={guestCount}
-              onChange={(e) => setGuestCount(e.target.value)}
-              placeholder="120"
-              className="input"
-            />
-          </Field>
+          <FormField label="Nombre de convives" required error={errors.guestCount}>
+            {(a11y) => (
+              <input
+                {...a11y}
+                type="number"
+                inputMode="numeric"
+                autoComplete="off"
+                min={GUESTS_MIN}
+                max={GUESTS_MAX}
+                value={guestCount}
+                data-field="guestCount"
+                onChange={(e) => update('guestCount', setGuestCount, e.target.value)}
+                placeholder="120"
+                className="input"
+              />
+            )}
+          </FormField>
 
-          <Field label="Votre email">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="vous@exemple.fr"
-              className="input"
-            />
-            <span className="text-xs text-muted">
-              Pour enregistrer votre menu, vous l’envoyer, et vous le rappeler si vous ne l’avez
-              pas terminé. Pas de publicité.
-            </span>
-          </Field>
-
-          {error && <p className="text-sm text-accent">{error}</p>}
+          <FormField
+            label="Votre email"
+            required
+            error={errors.email}
+            hint="Pour enregistrer votre menu, vous l’envoyer, et vous le rappeler si vous ne l’avez pas terminé. Pas de publicité."
+          >
+            {(a11y) => (
+              <input
+                {...a11y}
+                type="email"
+                autoComplete="email"
+                value={email}
+                data-field="email"
+                onChange={(e) => update('email', setEmail, e.target.value)}
+                placeholder="vous@exemple.fr"
+                className="input"
+              />
+            )}
+          </FormField>
 
           {TURNSTILE_SITE_KEY && (
             <div className="flex justify-center">
@@ -160,14 +226,5 @@ export default function AccueilPage() {
         </div>
       </motion.div>
     </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-ink">{label}</span>
-      {children}
-    </label>
   )
 }

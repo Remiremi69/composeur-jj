@@ -14,10 +14,11 @@
   --color-cream-hi: #fefcf8;     /* haut du dégradé, plus clair */
   --color-surface: #ffffff;      /* cartes, panneaux */
   --color-ink: #2b2521;          /* texte principal, profond */
-  --color-muted: #8a7f74;        /* texte secondaire */
+  --color-muted: #756a5f;        /* texte secondaire — ≥ 4,5:1 sur crème et sur blanc (cf. tests/contrast) */
   --color-accent: #8c6a3f;       /* accent profond (bronze/or) */
   --color-accent-dark: #6e5230;  /* accent au survol */
   --color-line: #e8ded0;         /* filets, bordures discrètes */
+  --color-error: #b3261e;        /* erreurs de formulaire — ≥ 4,5:1 sur crème et sur blanc */
 
   /* Typographies */
   --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;  /* titres, faire-part */
@@ -62,6 +63,31 @@ h3 {
 
 h1 {
   font-weight: 600;
+}
+
+/* Focus visible au clavier sur TOUS les éléments interactifs (anneau accent).
+   Les titres d'étape reçoivent le focus par programme : pas d'anneau. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Squelettes de chargement : pulsation discrète, coupée si l'utilisateur
+   demande moins d'animations. */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.skeleton {
+  background-color: var(--color-line);
+  border-radius: 0.5rem;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
 }
 
 @layer components {

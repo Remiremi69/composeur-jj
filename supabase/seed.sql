@@ -205,3 +205,21 @@ INSERT INTO "public"."options" ("id", "slug", "category", "name", "description",
 -- \unrestrict ogQgRFGGGIa9Bng6fAHH8oXrLhH2RFLft3dRORKG6OefGw2zbC6iUX5dJv6ONcc
 
 RESET ALL;
+
+--
+-- Lot 3 (migration 20260925155912_parcours) : noms courts et regroupement
+-- des étapes. Le dump ci-dessus date d'avant ces colonnes : on les complète
+-- ici pour que l'environnement local reflète la production.
+--
+UPDATE "public"."steps" SET "nav_title" = v.nav_title
+FROM (VALUES
+  ('format', 'Format'), ('boissons-vh', 'Boissons'), ('cocktail', 'Cocktail'),
+  ('pieces-cocktail', 'Pièces'), ('grignotage', 'Grignotage'), ('animation', 'Plancha'),
+  ('plat', 'Plat'), ('feculent', 'Féculent'), ('legume', 'Légume'),
+  ('fromage', 'Fromage'), ('dessert', 'Dessert'), ('cafe', 'Café')
+) AS v(slug, nav_title)
+WHERE "public"."steps"."slug" = v.slug;
+
+UPDATE "public"."steps"
+SET "group_slug" = 'assiette', "group_title" = 'Votre assiette', "group_nav_title" = 'Assiette'
+WHERE "slug" IN ('plat', 'feculent', 'legume');

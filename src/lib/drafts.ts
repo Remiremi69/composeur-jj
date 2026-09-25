@@ -66,6 +66,8 @@ export interface ReadOnlyMenu {
     lines: { name: string; description: string | null; supplement: number; quantity: number }[]
   }[]
   options: { name: string; price: number | null; priceUnit: 'par_personne' | 'forfait' }[]
+  // « Déjà compris dans votre formule » (absent des menus envoyés avant le lot 3)
+  included?: { title: string; items: { name: string; description: string | null }[] }[]
   estimate: Estimate
 }
 

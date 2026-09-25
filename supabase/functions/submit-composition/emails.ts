@@ -37,6 +37,20 @@ function menuHtml(recap: RecapData): string {
   return html
 }
 
+// « Déjà compris dans votre formule » : étapes où il n'y a rien à choisir.
+function includedHtml(recap: RecapData): string {
+  if (recap.included.length === 0) return ''
+  let html = `<div style="margin-top:20px;padding:14px 16px;background:#faf6ef;border-radius:12px">
+    <p style="margin:0 0 6px;font-size:13px;font-weight:bold;color:${INK}">Déjà compris dans votre formule</p>`
+  for (const group of recap.included) {
+    html += `<p style="margin:10px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:${MUTED}">${escapeHtml(group.title)}</p>`
+    for (const it of group.items) {
+      html += `<p style="margin:0;font-size:14px;color:${INK}">✓ ${escapeHtml(it.name)}</p>`
+    }
+  }
+  return `${html}</div>`
+}
+
 // Prix par personne en avant, total en dessous (plus discret).
 export function priceHtml(recap: RecapData): string {
   const { estimate } = recap
@@ -86,6 +100,7 @@ export function traiteurEmail(recap: RecapData, source: string | null = null): {
       ${priceHtml(recap)}
       <h2 style="font-family:Georgia,serif;font-size:18px;margin:22px 0 4px">Le menu</h2>
       ${menuHtml(recap)}
+      ${includedHtml(recap)}
       <p style="margin-top:22px;font-size:13px;color:${MUTED}">Répondez directement à cet email pour écrire aux mariés. Le récapitulatif complet est en pièce jointe (PDF).</p>
     </div>`
   return { subject: singleLine(`Nouvelle demande de menu — ${recap.coupleNames}`), html }
@@ -102,6 +117,7 @@ export function coupleEmail(recap: RecapData): { subject: string; html: string }
       Cette estimation est indicative : votre traiteur J&amp;J reviendra vers vous pour confirmer le devis.</p>
       <h2 style="font-family:Georgia,serif;font-size:18px;margin:22px 0 4px">Votre menu</h2>
       ${menuHtml(recap)}
+      ${includedHtml(recap)}
       ${priceHtml(recap)}
       ${
         recap.contact

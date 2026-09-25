@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import AccueilPage from './routes/AccueilPage'
 import FormulePage from './routes/FormulePage'
-import ComposerPage from './routes/ComposerPage'
+import ComposerPage, { ComposerEntry } from './routes/ComposerPage'
 import OptionsPage from './routes/OptionsPage'
 import RecapPage from './routes/RecapPage'
 import ConfirmationPage from './routes/ConfirmationPage'
@@ -19,7 +19,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<AccueilPage />} />
         <Route path="/formule" element={<FormulePage />} />
-        <Route path="/composer" element={<ComposerPage />} />
+        {/* Une route par écran : le bouton retour du navigateur revient à
+            l'étape précédente, un rafraîchissement garde l'étape. */}
+        <Route path="/composer" element={<ComposerEntry />} />
+        <Route path="/composer/:slug" element={<ComposerPage />} />
         <Route path="/options" element={<OptionsPage />} />
         <Route path="/recap" element={<RecapPage />} />
         <Route path="/confirmation" element={<ConfirmationPage />} />

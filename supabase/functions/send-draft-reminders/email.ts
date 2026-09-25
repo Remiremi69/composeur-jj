@@ -28,12 +28,15 @@ const PAGE_LABELS: Record<string, string> = {
 // Libellé de la dernière étape atteinte (slug d'étape ou page).
 export function stepLabelOf(
   lastStep: string | null,
-  steps: { slug: string; title: string }[],
+  steps: { slug: string; title: string; group_slug?: string | null; group_title?: string | null }[],
 ): string | null {
   if (!lastStep) return null
   if (PAGE_LABELS[lastStep]) return PAGE_LABELS[lastStep]
   const step = steps.find((s) => s.slug === lastStep)
-  return step ? `« ${step.title} »` : null
+  if (step) return `« ${step.title} »`
+  // Depuis le lot 3, la dernière étape peut être un écran groupé (« assiette »).
+  const grouped = steps.find((s) => s.group_slug === lastStep && s.group_title)
+  return grouped ? `« ${grouped.group_title} »` : null
 }
 
 // « +33 6 71 17 06 73 » → « +33671170673 » pour un lien tel:.
