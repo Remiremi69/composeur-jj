@@ -1,14 +1,17 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 
 export default function ConfirmationPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { couple, reset } = useComposition()
+  const { couple, reset, submittedToken } = useComposition()
   // Transmis par la page récap : l'email récapitulatif est-il bien parti ?
   // undefined = inconnu (page rechargée) : on ne promet rien.
-  const emailSent = (location.state as { emailSent?: boolean } | null)?.emailSent
+  const navState = location.state as { emailSent?: boolean; shareToken?: string } | null
+  const emailSent = navState?.emailSent
+  // Lien du menu en lecture seule (partageable, sans données de contact).
+  const menuToken = navState?.shareToken ?? submittedToken
 
   function startOver() {
     reset()
@@ -47,6 +50,15 @@ export default function ConfirmationPage() {
             Votre menu est bien enregistré et J&amp;J l'a reçu. Votre traiteur reviendra vers
             vous pour affiner et confirmer votre devis.
           </p>
+        )}
+
+        {menuToken && (
+          <Link
+            to={`/menu/${menuToken}`}
+            className="mt-6 inline-block rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-accent"
+          >
+            Voir notre menu en ligne
+          </Link>
         )}
 
         <div className="mt-8 rounded-card border border-line bg-surface p-6 text-left">

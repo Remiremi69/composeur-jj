@@ -11,6 +11,9 @@ export const GUESTS_MAX = 400
 export const MAX_NAMES_LENGTH = 120
 export const MAX_EMAIL_LENGTH = 254
 export const MAX_PHONE_LENGTH = 30
+export const MAX_VENUE_LENGTH = 200
+export const MAX_DIETARY_LENGTH = 1000
+export const MAX_MESSAGE_LENGTH = 2000
 export const MAX_ITEMS = 200
 export const MAX_OPTIONS = 50
 export const MAX_QUANTITY = 500
@@ -45,7 +48,6 @@ function isBlank(v: unknown): boolean {
 export interface CoupleInfoInput {
   coupleNames?: unknown
   email?: unknown
-  phone?: unknown
   weddingDate?: unknown
   guestCount?: unknown
 }
@@ -81,9 +83,67 @@ export function validateCoupleInfo(input: CoupleInfoInput, now: Date = new Date(
     }
   }
 
-  if (!isBlank(input.phone)) {
-    if (typeof input.phone !== 'string' || input.phone.length > MAX_PHONE_LENGTH) {
-      errors.push('Le numéro de téléphone est invalide.')
+  return errors
+}
+
+// Normalise un numéro de téléphone. Numéros français → +33XXXXXXXXX
+// (06 12 34 56 78, 0612345678, +33 6…, +33 (0)6…, 0033 6…). Numéros
+// étrangers acceptés au format international (+32…, +41…, 0032…).
+// Renvoie null si le numéro n'est pas exploitable.
+export function normalizePhone(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const raw = value.trim()
+  if (raw === '' || raw.length > MAX_PHONE_LENGTH) return null
+  // Chiffres, espaces, points, tirets, parenthèses et un « + » initial.
+  if (!/^\+?[\d\s.()-]+$/.test(raw)) return null
+  let digits = raw.replace(/[\s.()-]/g, '')
+  if (digits.startsWith('00')) digits = '+' + digits.slice(2)
+
+  if (digits.startsWith('+')) {
+    const rest = digits.slice(1)
+    if (rest.startsWith('33')) {
+      let national = rest.slice(2)
+      if (national.startsWith('0')) national = national.slice(1) // « +33 (0)6… »
+      return /^[1-9]\d{8}$/.test(national) ? '+33' + national : null
+    }
+    // Format international (E.164) : indicatif + numéro, 8 à 15 chiffres.
+    return /^[1-9]\d{7,14}$/.test(rest) ? '+' + rest : null
+  }
+
+  // Numéro national français à 10 chiffres.
+  return /^0[1-9]\d{8}$/.test(digits) ? '+33' + digits.slice(1) : null
+}
+
+export interface ContactInfoInput {
+  phone?: unknown
+  venue?: unknown
+  dietaryNotes?: unknown
+  message?: unknown
+}
+
+// Vérifie les informations « Pour vous recontacter » (page récap).
+export function validateContactInfo(input: ContactInfoInput): string[] {
+  const errors: string[] = []
+
+  if (normalizePhone(input.phone) === null) {
+    errors.push('Indiquez un numéro de téléphone valide (ex. 06 12 34 56 78).')
+  }
+
+  if (typeof input.venue !== 'string' || input.venue.trim() === '') {
+    errors.push('Indiquez le lieu de réception.')
+  } else if (input.venue.trim().length > MAX_VENUE_LENGTH) {
+    errors.push(`Le lieu de réception ne doit pas dépasser ${MAX_VENUE_LENGTH} caractères.`)
+  }
+
+  if (!isBlank(input.dietaryNotes)) {
+    if (typeof input.dietaryNotes !== 'string' || input.dietaryNotes.length > MAX_DIETARY_LENGTH) {
+      errors.push(`Les allergies et régimes ne doivent pas dépasser ${MAX_DIETARY_LENGTH} caractères.`)
+    }
+  }
+
+  if (!isBlank(input.message)) {
+    if (typeof input.message !== 'string' || input.message.length > MAX_MESSAGE_LENGTH) {
+      errors.push(`Le message ne doit pas dépasser ${MAX_MESSAGE_LENGTH} caractères.`)
     }
   }
 
@@ -132,7 +192,7 @@ export function validateComposition(
     return { ok: false, errors: ['Les données envoyées sont invalides.'] }
   }
 
-  const errors: string[] = validateCoupleInfo(payload, now)
+  const errors: string[] = [...validateCoupleInfo(payload, now), ...validateContactInfo(payload)]
 
   // Formule
   const formule =

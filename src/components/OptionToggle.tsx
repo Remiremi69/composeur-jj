@@ -1,12 +1,8 @@
 import type { Option } from '../types/db'
-import { formatPrice } from '../lib/format'
+import { optionPriceLabel } from '../lib/format'
 
-function priceLabel(o: Option): string {
-  if (o.price <= 0) return 'Sur demande'
-  return o.price_unit === 'par_personne'
-    ? `${formatPrice(o.price)} / pers`
-    : `${formatPrice(o.price)} forfait`
-}
+// Prix vide = « Sur demande », 0 € = « Offert » (règle du noyau partagé).
+const priceLabel = (o: Option) => optionPriceLabel(o)
 
 // Une option cochable (bar de nuit, présentation fromage, brunch…).
 export default function OptionToggle({

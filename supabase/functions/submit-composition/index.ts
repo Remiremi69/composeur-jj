@@ -1,115 +1,69 @@
 // Edge Function : submit-composition
-// Point d'entrée UNIQUE de la soumission d'un menu. Le front n'écrit jamais
+// Point d'entrée UNIQUE de l'envoi d'un menu. Le front n'écrit jamais
 // directement dans les tables.
 //
 // Chaîne de traitement :
 //   CORS strict → POST ≤ 50 ko → honeypot → délai minimal → limite de débit
 //   → Turnstile (si configuré) → validation (noyau partagé) → prix recalculé
-//   → create_composition (atomique) → emails (une seule fois) → réponse.
+//   → submit_composition (atomique : le brouillon passe en « envoyé », même
+//   id) → emails (une seule fois) → réponse.
 //
 // Aucune trace technique n'est renvoyée au client : tout est journalisé ici.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { encodeBase64 } from 'https://deno.land/std@0.224.0/encoding/base64.ts'
+import { isShareToken, sanitizeAttribution } from '../_shared/core/draft.ts'
 import { computeEstimate } from '../_shared/core/pricing.ts'
 import type { Catalog, CompositionPayload } from '../_shared/core/types.ts'
-import { validateComposition } from '../_shared/core/validation.ts'
+import { normalizePhone, validateComposition } from '../_shared/core/validation.ts'
 import {
+  adminClient,
   checkRateLimit,
-  clientIp,
+  env,
+  GENERIC_ERROR,
+  guardRequest,
+  ipHashOf,
   isHoneypotFilled,
   isHumanTiming,
-  sha256Hex,
-  verifyTurnstile,
-} from './antispam.ts'
-import { corsHeaders, isOriginAllowed, normalizeOrigin } from './cors.ts'
-import { coupleEmail, sendEmail, traiteurEmail } from './emails.ts'
+  json,
+  passesTurnstile,
+  readJsonObject,
+} from '../_shared/guard.ts'
+import { buildRecap, type RecapData } from '../_shared/recap.ts'
+import { sendEmail } from '../_shared/resend.ts'
+import { coupleEmail, traiteurEmail } from './emails.ts'
 import { buildPdf } from './pdf.ts'
-import { buildRecap } from './recap.ts'
-
-const MAX_BODY_BYTES = 50 * 1024
-
-const env = (name: string) => (Deno.env.get(name) ?? '').trim()
-
-const GENERIC_ERROR = 'Une erreur est survenue. Merci de réessayer dans un instant.'
-
-function json(data: unknown, status: number, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8' },
-  })
-}
-
-// Lit le corps en ne conservant que MAX_BODY_BYTES octets. Le flux est vidé
-// jusqu'au bout même s'il est trop gros : répondre sans le consommer bloque
-// la passerelle (504) au lieu de renvoyer un 413 propre.
-async function readBodyLimited(req: Request): Promise<{ text: string; tooLarge: boolean }> {
-  if (!req.body) return { text: '', tooLarge: false }
-  const reader = req.body.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    size += value.byteLength
-    if (size <= MAX_BODY_BYTES) chunks.push(value)
-  }
-  if (size > MAX_BODY_BYTES) return { text: '', tooLarge: true }
-  const bytes = new Uint8Array(size)
-  let offset = 0
-  for (const c of chunks) {
-    bytes.set(c, offset)
-    offset += c.byteLength
-  }
-  return { text: new TextDecoder().decode(bytes), tooLarge: false }
-}
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 // Ne garde que les champs attendus de la composition (le reste est ignoré).
 function pickPayload(body: Record<string, unknown>): Record<string, unknown> {
   return {
     coupleNames: body.coupleNames,
     email: body.email,
-    phone: body.phone,
     weddingDate: body.weddingDate,
     guestCount: body.guestCount,
     formuleId: body.formuleId,
     selections: body.selections,
     optionIds: body.optionIds ?? [],
+    phone: body.phone,
+    venue: body.venue,
+    dietaryNotes: body.dietaryNotes,
+    message: body.message,
   }
 }
 
-Deno.serve(async (req) => {
-  const origin = normalizeOrigin(req.headers.get('origin'))
-  if (!isOriginAllowed(origin)) {
-    console.warn(`[submit] origine refusée : ${origin || '(aucune)'}`)
-    return json({ ok: false, error: 'Origine non autorisée.' }, 403)
-  }
-  const cors = corsHeaders(origin)
+function optionalText(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() !== '' ? v.trim() : null
+}
 
-  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
-  if (req.method !== 'POST') {
-    return json({ ok: false, error: 'Méthode non autorisée.' }, 405, cors)
-  }
+Deno.serve(async (req) => {
+  const guard = guardRequest(req, ['POST'])
+  if (!guard.ok) return guard.response
+  const { cors } = guard
 
   try {
-    // --- Taille et format du corps (50 ko max) --------------------------
-    const { text: raw, tooLarge } = await readBodyLimited(req)
-    if (tooLarge) {
-      return json({ ok: false, error: 'La requête est trop volumineuse.' }, 413, cors)
-    }
-    let body: unknown
-    try {
-      body = JSON.parse(raw)
-    } catch {
-      return json({ ok: false, error: 'La requête est invalide.' }, 400, cors)
-    }
-    if (!isPlainObject(body)) {
-      return json({ ok: false, error: 'La requête est invalide.' }, 400, cors)
-    }
+    const read = await readJsonObject(req, cors)
+    if (!read.ok) return read.response
+    const { body } = read
 
     // --- Anti-spam ------------------------------------------------------
     if (isHoneypotFilled(body)) {
@@ -125,15 +79,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-
-    const ip = clientIp(req)
-    const salt = env('RATE_LIMIT_SALT')
-    if (!salt) console.warn('[submit] RATE_LIMIT_SALT absent : hachage sans sel')
-    const ipHash = await sha256Hex(`${ip}${salt}`)
-    if (!(await checkRateLimit(admin, ipHash))) {
+    const admin = adminClient()
+    if (!(await checkRateLimit(admin, await ipHashOf(req), 'submit'))) {
       console.warn('[submit] limite de débit atteinte')
       return json(
         {
@@ -144,9 +91,7 @@ Deno.serve(async (req) => {
         cors,
       )
     }
-
-    const turnstileSecret = env('TURNSTILE_SECRET_KEY')
-    if (turnstileSecret && !(await verifyTurnstile(turnstileSecret, body.turnstileToken, ip))) {
+    if (!(await passesTurnstile(req, body.turnstileToken))) {
       console.warn('[submit] vérification Turnstile échouée')
       return json(
         { ok: false, error: 'La vérification anti-robot a échoué. Merci de réessayer.' },
@@ -156,20 +101,7 @@ Deno.serve(async (req) => {
     }
 
     // --- Catalogue (y compris inactifs, pour pouvoir les refuser) --------
-    const [formules, steps, items, options] = await Promise.all([
-      admin.from('formules').select('*'),
-      admin.from('steps').select('*'),
-      admin.from('items').select('*'),
-      admin.from('options').select('*'),
-    ])
-    const loadError = formules.error ?? steps.error ?? items.error ?? options.error
-    if (loadError) throw new Error(`chargement du catalogue : ${loadError.message}`)
-    const catalog: Catalog = {
-      formules: formules.data ?? [],
-      steps: steps.data ?? [],
-      items: items.data ?? [],
-      options: options.data ?? [],
-    }
+    const catalog = await loadCatalog(admin)
 
     // --- Validation + prix recalculé côté serveur -----------------------
     const candidate = pickPayload(body)
@@ -179,6 +111,11 @@ Deno.serve(async (req) => {
     }
     const payload = candidate as unknown as CompositionPayload
     const formule = catalog.formules.find((f) => f.id === payload.formuleId)!
+    const phone = normalizePhone(payload.phone)!
+    const dietaryNotes = optionalText(payload.dietaryNotes)
+    const message = optionalText(payload.message)
+    const { source, landingParams } = sanitizeAttribution(body.source, body.landingParams)
+    const shareToken = isShareToken(body.shareToken) ? body.shareToken : null
     // Le total éventuellement envoyé par le navigateur est ignoré.
     const estimate = computeEstimate(
       formule,
@@ -190,50 +127,90 @@ Deno.serve(async (req) => {
     )
 
     // --- Enregistrement atomique -----------------------------------------
-    const { data: created, error: createError } = await admin.rpc('create_composition', {
+    const { data: saved, error: saveError } = await admin.rpc('submit_composition', {
       p: {
+        share_token: shareToken,
         formule_id: payload.formuleId,
         couple_names: payload.coupleNames.trim(),
         email: payload.email.trim(),
-        phone: typeof payload.phone === 'string' ? payload.phone.trim() : null,
+        phone,
         wedding_date: payload.weddingDate || null,
         guest_count: payload.guestCount,
+        venue: payload.venue.trim(),
+        dietary_notes: dietaryNotes,
+        message,
+        source,
+        landing_params: landingParams,
         total_estimate: estimate.total,
-        items: Object.entries(payload.selections).map(([item_id, quantity]) => ({
-          item_id,
-          quantity,
-        })),
+        items: Object.entries(payload.selections).map(([item_id, quantity]) => ({ item_id, quantity })),
         option_ids: payload.optionIds,
       },
     })
-    const row = Array.isArray(created) ? created[0] : null
-    if (createError || !row) {
-      throw new Error(`create_composition : ${createError?.message ?? 'aucune ligne renvoyée'}`)
+    const row = Array.isArray(saved) ? saved[0] : null
+    if (saveError || !row) {
+      throw new Error(`submit_composition : ${saveError?.message ?? 'aucune ligne renvoyée'}`)
     }
     const compositionId: string = row.id
-    const shareToken: string = row.share_token
+    const token: string = row.share_token
 
     // --- Emails (n'empêchent jamais la réponse : la demande est enregistrée)
     let emailSent = false
     try {
-      emailSent = await sendCompositionEmails(admin, compositionId, buildRecap(catalog, formule, payload, estimate))
+      const recap = buildRecap(
+        catalog,
+        formule,
+        {
+          coupleNames: payload.coupleNames,
+          weddingDate: payload.weddingDate || null,
+          guestCount: payload.guestCount,
+          selections: payload.selections,
+          optionIds: payload.optionIds,
+          contact: {
+            email: payload.email.trim(),
+            phone,
+            venue: payload.venue.trim(),
+            dietaryNotes,
+            message,
+          },
+        },
+        estimate,
+      )
+      emailSent = await sendCompositionEmails(admin, compositionId, recap, source)
     } catch (e) {
       console.error(`[submit] envoi des emails (${compositionId}) :`, e)
     }
 
-    return json({ ok: true, compositionId, shareToken, emailSent, estimate }, 200, cors)
+    return json({ ok: true, compositionId, shareToken: token, emailSent, estimate }, 200, cors)
   } catch (e) {
     console.error('[submit] erreur inattendue :', e)
     return json({ ok: false, error: GENERIC_ERROR }, 500, cors)
   }
 })
 
+async function loadCatalog(admin: SupabaseClient): Promise<Catalog> {
+  const [formules, steps, items, options] = await Promise.all([
+    admin.from('formules').select('*'),
+    admin.from('steps').select('*'),
+    admin.from('items').select('*'),
+    admin.from('options').select('*'),
+  ])
+  const error = formules.error ?? steps.error ?? items.error ?? options.error
+  if (error) throw new Error(`chargement du catalogue : ${error.message}`)
+  return {
+    formules: formules.data ?? [],
+    steps: steps.data ?? [],
+    items: items.data ?? [],
+    options: options.data ?? [],
+  }
+}
+
 // Envoie les deux emails une seule fois par composition (emails_sent_at).
 // Renvoie true si l'email récapitulatif du couple est bien parti.
 async function sendCompositionEmails(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   compositionId: string,
-  recap: ReturnType<typeof buildRecap>,
+  recap: RecapData,
+  source: string | null,
 ): Promise<boolean> {
   const { data: comp, error } = await admin
     .from('compositions')
@@ -248,7 +225,7 @@ async function sendCompositionEmails(
 
   const apiKey = env('RESEND_API_KEY')
   const from = env('FROM_EMAIL')
-  if (!apiKey || !from) {
+  if (!apiKey || !from || !recap.contact) {
     console.error('[emails] RESEND_API_KEY ou FROM_EMAIL manquant : aucun email envoyé')
     return false
   }
@@ -266,12 +243,12 @@ async function sendCompositionEmails(
     .filter(Boolean)
   let traiteurOk = false
   if (traiteurTo.length) {
-    const t = traiteurEmail(recap)
+    const t = traiteurEmail(recap, source)
     traiteurOk = await sendEmail({
       apiKey,
       from,
       to: traiteurTo,
-      replyTo: recap.email, // le traiteur répond directement au couple
+      replyTo: recap.contact.email, // le traiteur répond directement au couple
       subject: t.subject,
       html: t.html,
       pdfBase64,
@@ -284,7 +261,7 @@ async function sendCompositionEmails(
   const coupleOk = await sendEmail({
     apiKey,
     from,
-    to: recap.email,
+    to: recap.contact.email,
     replyTo: env('REPLY_TO_EMAIL') || undefined,
     subject: c.subject,
     html: c.html,

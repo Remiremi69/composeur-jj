@@ -211,3 +211,255 @@ Revenir à une ancienne version du front sur Vercel **ne suffit pas** : l'ancien
 front écrit directement dans les tables, ce que la migration interdit. Terminez
 plutôt les étapes 8 et 9. Les erreurs de la fonction sont visibles dans
 Dashboard → **Edge Functions** → `submit-composition` → **Logs**.
+
+> ✅ **Lot 1 déployé en production le 24/09/2026.**
+
+---
+
+## Lot 2 — Conversion
+
+Brouillons côté serveur (sauvegarde automatique, reprise, relance des
+abandons), informations de recontact, provenance, prix cohérent partout.
+
+### Ce qui change par rapport au lot 1
+
+- **Pas de coupure cette fois**, à condition de respecter l'ordre :
+  migration → **front** → fonctions. Le nouveau front fonctionne avec
+  l'ancienne fonction d'envoi (seule la sauvegarde automatique échoue, en
+  silence, en attendant). L'ordre inverse bloquerait les couples : la
+  nouvelle fonction exige un téléphone que l'ancien front ne demande pas.
+- **Cinq Edge Functions** au lieu d'une : `submit-composition` (mise à jour),
+  `save-draft`, `get-draft`, `draft-opt-out`, `send-draft-reminders`.
+- **Deux fonctions sans jeton Supabase** (`verify_jwt = false`, déclaré dans
+  `supabase/config.toml`) : `send-draft-reminders` (protégée par
+  `CRON_SECRET`) et `draft-opt-out` (désinscription « un clic » depuis la
+  messagerie ; le jeton de partage fait foi).
+- **Turnstile est désormais aussi sur l'accueil** (création du brouillon).
+  ⚠️ **Fortement recommandé** : chaque brouillon peut déclencher un email de
+  relance 24 h plus tard ; sans Turnstile, un robot pourrait créer des
+  brouillons au nom de n'importe qui et faire partir des relances depuis
+  `j-jtraiteur.fr`. Il est déjà configuré depuis le lot 1
+  (`TURNSTILE_SECRET_KEY` + `VITE_TURNSTILE_SITE_KEY`) : **ne le retirez pas**.
+
+---
+
+### Étape 1 — Vérifier la CLI
+
+```bash
+cd C:\Users\mormo\Desktop\composeur-jj
+```
+```bash
+npx supabase migration list
+```
+
+Attendu : `20260922204829` et `20260922210237` en **Local** et **Remote** ;
+`20260924154221` en **Local** uniquement.
+
+---
+
+### Étape 2 — Générer le secret des relances
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Gardez cette valeur de côté : c'est `CRON_SECRET` (étapes 3 et 9).
+
+---
+
+### Étape 3 — Nouveaux secrets de l'Edge Function
+
+Dashboard Supabase → **Edge Functions** → **Secrets** :
+
+| Secret | Valeur | État |
+|---|---|---|
+| `SITE_URL` | `https://composeur-jj.vercel.app` (sans `/` final) | **à créer** |
+| `TRAITEUR_PHONE` | `+33 6 71 17 06 73` | **à créer** |
+| `CRON_SECRET` | la valeur de l'étape 2 | **à créer** |
+| `ALLOWED_ORIGINS`, `RATE_LIMIT_SALT`, `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `FROM_EMAIL`, `REPLY_TO_EMAIL`, `TRAITEUR_EMAIL` | inchangés | déjà en place |
+
+> `SITE_URL` sert à construire les liens des emails de relance
+> (`/reprendre/…`, `/desinscription/…`). **Pensez à la mettre à jour** le jour
+> où le sous-domaine définitif remplacera `composeur-jj.vercel.app` (en même
+> temps que `ALLOWED_ORIGINS` et les *Hostnames* du widget Turnstile).
+
+---
+
+### Étape 4 — Variables du front sur Vercel
+
+Vercel → **composeur-jj** → **Settings** → **Environment Variables**, type
+**Configuration** (valeurs publiques), environnement **Production** :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_PRIVACY_URL` | `https://j-jtraiteur.fr/confidentialite` |
+| `VITE_TRAITEUR_SITE_URL` | `https://j-jtraiteur.fr` |
+
+Ne redéployez pas tout de suite : elles seront prises en compte à l'étape 7.
+
+---
+
+### Étape 5 — Logo (facultatif, avant l'étape 7)
+
+Déposez le fichier **`public/brand/jj-logo-slate.png`** dans le projet et
+commitez-le. Sans lui, la page menu et la page de désinscription affichent
+« J&J Traiteur » en typographie (repli prévu).
+
+---
+
+### Étape 6 — Appliquer la migration
+
+```bash
+npx supabase db push --dry-run
+```
+
+Attendu : seule `20260924154221_conversion.sql`. Puis :
+
+```bash
+npx supabase db push
+```
+
+> Effet à connaître : la **« Présentation en buffet des gâteaux »** passe en
+> prix vide et s'affiche désormais **« Sur demande »**. Si J&J confirme qu'elle
+> est **offerte**, dans le SQL Editor :
+> `update public.options set price = 0 where slug = 'dessert-buffet-gateaux';`
+> (elle s'affichera alors « Offert »).
+
+---
+
+### Étape 7 — Déployer le front
+
+Commitez puis poussez la branche `master` ; attendez **Ready** sur Vercel.
+
+---
+
+### Étape 8 — Déployer les fonctions
+
+```bash
+npx supabase functions deploy submit-composition
+```
+```bash
+npx supabase functions deploy save-draft
+```
+```bash
+npx supabase functions deploy get-draft
+```
+```bash
+npx supabase functions deploy draft-opt-out --no-verify-jwt
+```
+```bash
+npx supabase functions deploy send-draft-reminders --no-verify-jwt
+```
+
+Chaque commande doit afficher « Deployed Functions ». Le `--no-verify-jwt`
+confirme le réglage de `config.toml` pour les deux fonctions appelées sans
+jeton Supabase.
+
+---
+
+### Étape 9 — Activer la relance horaire (après les tests de l'étape 10)
+
+Ouvrez **`supabase/cron/draft-reminders.sql`**, copiez-le dans le **SQL
+Editor**, **retirez les `--`** devant les blocs 1, 2 et 3, remplacez
+`COLLEZ_ICI_LE_CRON_SECRET` par la valeur de l'étape 2, puis **Run**.
+Vérification :
+
+```sql
+select jobname, schedule, active from cron.job;
+```
+
+Attendu : `composeur-relances | 17 * * * * | t`. Le lendemain, contrôlez les
+exécutions :
+
+```sql
+select status, return_message, start_time from cron.job_run_details
+order by start_time desc limit 10;
+```
+
+> ⚠️ Ne commitez jamais ce fichier avec le vrai secret dedans.
+
+---
+
+### Étape 10 — Checklist de tests en production
+
+Utilisez **votre propre email** pour ces tests.
+
+**Brouillon et provenance**
+- [ ] Ouvrir `https://composeur-jj.vercel.app/?utm_source=test-deploiement` en
+  navigation privée. Sous le champ email : « Pour enregistrer votre menu, vous
+  l'envoyer, et vous le rappeler si vous ne l'avez pas terminé. Pas de
+  publicité. »
+- [ ] Valider l'accueil, choisir une formule : en bas à droite,
+  **« ≈ … € / pers. »** puis **« Menu enregistré ✓ »**.
+- [ ] Dans le SQL Editor :
+  ```sql
+  select status, couple_names, source, last_step, share_token
+  from public.compositions order by created_at desc limit 1;
+  ```
+  Attendu : `draft`, `test-deploiement`, la dernière étape atteinte.
+
+**Reprise**
+- [ ] Dans une **autre** fenêtre privée, ouvrir
+  `https://composeur-jj.vercel.app/reprendre/<share_token>` → retour
+  direct à la dernière étape, avec la sélection.
+
+**Récap, envoi, emails**
+- [ ] Récap : le prix par personne est en grand ; « Voir le détail » montre
+  formule, suppléments, options et le **total pour N convives**.
+- [ ] Cliquer « Envoyer » sans téléphone ni lieu → messages d'erreur.
+  Saisir `06 12 34 56 78` puis quitter le champ → `+33 6 12 34 56 78`.
+- [ ] Le lien « Politique de confidentialité » ouvre
+  `https://j-jtraiteur.fr/confidentialite`.
+- [ ] Envoyer → confirmation avec **« Voir notre menu en ligne »**.
+- [ ] Emails (traiteur et couple) : prix par personne en avant, total en
+  dessous ; téléphone **cliquable** chez le traiteur ; lieu, allergies,
+  message ; PDF avec « Vos informations ».
+- [ ] La même ligne est passée en « envoyée » (pas de doublon) :
+  ```sql
+  select status, phone, venue, consent_at is not null as consentement
+  from public.compositions where share_token = '<share_token>';
+  ```
+- [ ] `/menu/<share_token>` : menu complet, **sans** email, téléphone ni lieu,
+  sans bouton d'édition, avec le logo (ou « J&J Traiteur ») et le lien vers
+  `j-jtraiteur.fr`.
+
+**Back-office**
+- [ ] `/admin` : la liste ne montre que les menus **envoyés** ; en haut à
+  droite, **« Menus en cours : N »**.
+- [ ] Fiche : téléphone cliquable, lieu, allergies, message, provenance.
+
+**Options**
+- [ ] « Présentation en buffet des gâteaux » affiche **« Sur demande »**.
+
+**Relance et désinscription** (avant l'étape 9)
+- [ ] Créer un brouillon avec votre email (accueil + une formule), puis le
+  « vieillir » de 25 h dans le SQL Editor :
+  ```sql
+  alter table public.compositions disable trigger compositions_set_updated_at;
+  update public.compositions set updated_at = now() - interval '25 hours'
+  where status = 'draft' and email = 'VOTRE_EMAIL';
+  alter table public.compositions enable trigger compositions_set_updated_at;
+  ```
+- [ ] Déclencher la relance à la main (remplacez `VOTRE_CRON_SECRET`) :
+  ```bash
+  curl -X POST https://qlxswvjvorycpxbncppr.supabase.co/functions/v1/send-draft-reminders -H "x-cron-secret: VOTRE_CRON_SECRET"
+  ```
+  Attendu : `{"ok":true,"sent":1,"failed":0}`. L'email « Votre menu de mariage
+  vous attend » contient le bouton **Reprendre mon menu**, l'étape, le
+  téléphone de J&J et le lien de désinscription. Dans Gmail, un lien
+  « Se désabonner » apparaît en haut.
+- [ ] Relancer la même commande → `"sent":0` (une seule relance par brouillon).
+- [ ] La même commande **sans** l'en-tête `x-cron-secret` → `Non autorisé.`
+- [ ] Cliquer « Ne plus recevoir de rappel » dans l'email → page du Composeur
+  → **Confirmer** → « C'est noté ». Vérifier :
+  ```sql
+  select reminders_opt_out from public.compositions
+  where status = 'draft' and email = 'VOTRE_EMAIL';
+  ```
+
+### Étape 11 — Nettoyage
+
+```sql
+delete from public.compositions where email = 'VOTRE_EMAIL';
+delete from public.submission_log;
+```

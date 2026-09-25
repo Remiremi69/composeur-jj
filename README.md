@@ -18,7 +18,7 @@ seulement le contenu de la base et les couleurs du thème (`src/index.css`).
 |---|---|---|
 | Front | React 18, Vite 5, Tailwind 3, framer-motion | Parcours du couple + back-office `/admin` |
 | Base | Supabase (Postgres + RLS) | Catalogue, compositions, administrateurs |
-| Serveur | Edge Function `submit-composition` (Deno) | Seul point d'entrée de la soumission |
+| Serveur | Edge Functions (Deno) | Envoi du menu, brouillons, reprise, relances, désinscription |
 | Emails | Resend | Notification traiteur + récapitulatif couple (PDF joint) |
 | Hébergement | Vercel (front), Supabase (base + fonction) | |
 
@@ -30,14 +30,23 @@ src/                              Front React
   lib/                            Client Supabase, soumission, formatage ; rules.ts et pricing.ts ré-exportent le noyau
 supabase/
   functions/
-    _shared/core/                 NOYAU MÉTIER PARTAGÉ (TypeScript pur) : types, règles, prix, validation
-    _shared/html.ts               Échappement HTML des emails
-    submit-composition/           Edge Function : CORS, anti-spam, validation, enregistrement, emails, PDF
+    _shared/core/                 NOYAU MÉTIER PARTAGÉ (TypeScript pur) : types, règles, prix,
+                                  validation, brouillons, formatage
+    _shared/guard.ts              Protections communes : CORS, taille, piège, limite de débit, Turnstile
+    _shared/recap.ts, html.ts,    Récapitulatif, échappement HTML, envoi Resend
+      resend.ts
+    submit-composition/           Envoi du menu : validation, prix serveur, enregistrement atomique, emails, PDF
+    save-draft/                   Création et sauvegarde automatique des brouillons
+    get-draft/                    Reprise d'un brouillon / menu envoyé en lecture seule
+    send-draft-reminders/         Relance des menus abandonnés (appelée par pg_cron)
+    draft-opt-out/                Désinscription des relances
   migrations/                     Schéma de la base (source de vérité), migrations horodatées
+  cron/                           Tâche horaire de relance, à activer à la main (contient le secret)
   seed.sql                        Catalogue de référence (sans aucune composition) pour le local
   legacy/                         Anciens scripts SQL — archives, NE PAS EXÉCUTER
 tests/                            Tests vitest (noyau + emails)
 docs/DEPLOY.md                    Actions manuelles de mise en production, lot par lot
+docs/BACKLOG.md                   Points à traiter dans un lot ultérieur
 ```
 
 ### Le noyau métier partagé
@@ -68,6 +77,23 @@ Le front l'importe via l'alias `@core/*` (voir `tsconfig.app.json` et
   composition (`emails_sent_at`).
 - Back-office : réservé aux comptes déclarés dans la table `admins`
   (`is_admin()`), inscriptions fermées.
+
+### Conversion (lot 2)
+
+- **Brouillons côté serveur** : dès l'accueil validé, le menu est enregistré
+  (`status = 'draft'`) puis sauvegardé automatiquement 2 s après chaque
+  changement (indicateur « Menu enregistré ✓ »). L'envoi transforme le
+  brouillon en demande (même id) via `submit_composition()`.
+- **Reprise** : `/reprendre/:token` restaure le menu à la dernière étape ;
+  `/menu/:token` affiche un menu envoyé en lecture seule (sans données de
+  contact) ; `/desinscription/:token` arrête les relances.
+- **Relance** : une seule fois par brouillon, entre 24 h et 7 jours
+  d'inactivité, par `send-draft-reminders` (pg_cron toutes les heures,
+  protégée par `CRON_SECRET`). `updated_at` ne bouge qu'en cas de vraie
+  activité, pas sur les colonnes de suivi technique.
+- **Recontact** : téléphone (normalisé +33), lieu, allergies, message et
+  consentement à l'envoi ; provenance (`?source=`, `utm_*`) capturée à
+  l'arrivée.
 
 ---
 
@@ -130,9 +156,11 @@ checklist de tests).
 |---|---|
 | `VITE_SUPABASE_URL` | URL du projet Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Clé anon (publique, protégée par RLS) |
-| `VITE_TURNSTILE_SITE_KEY` | Clé publique Cloudflare Turnstile (facultative) |
+| `VITE_TURNSTILE_SITE_KEY` | Clé publique Cloudflare Turnstile (facultative, fortement recommandée) |
+| `VITE_PRIVACY_URL` | Politique de confidentialité, liée sous le bouton d'envoi |
+| `VITE_TRAITEUR_SITE_URL` | Site vitrine de J&J (logo, page menu) |
 
-### Edge Function `submit-composition` (secrets Supabase — jamais dans le front)
+### Edge Functions (secrets Supabase — jamais dans le front)
 
 | Secret | Rôle |
 |---|---|
@@ -143,6 +171,9 @@ checklist de tests).
 | `FROM_EMAIL` | Expéditeur, ex. `Le Composeur — J&J <menu@j-jtraiteur.fr>` |
 | `REPLY_TO_EMAIL` | Adresse de réponse pour l'email envoyé au couple |
 | `TRAITEUR_EMAIL` | Destinataire(s) traiteur, séparés par des virgules |
+| `SITE_URL` | Adresse du Composeur, pour les liens des emails de relance |
+| `TRAITEUR_PHONE` | Téléphone de J&J affiché dans les relances (ex. `+33 6 71 17 06 73`) |
+| `CRON_SECRET` | Secret partagé avec la tâche pg_cron qui déclenche les relances |
 
 `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont fournis automatiquement par
 Supabase à la fonction.

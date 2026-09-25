@@ -42,7 +42,7 @@ export interface Option {
   category: string
   name: string
   description: string | null
-  price: number
+  price: number | null // vide = « Sur demande », 0 = « Offert »
   price_unit: 'par_personne' | 'forfait'
   position: number
   is_active: boolean | null
@@ -89,10 +89,24 @@ export interface Catalog {
 export interface CompositionPayload {
   coupleNames: string
   email: string
-  phone?: string | null
   weddingDate?: string | null // AAAA-MM-JJ
   guestCount: number
   formuleId: string
   selections: Selections
   optionIds: string[]
+  // Pour recontacter le couple (saisis sur la page récap)
+  phone: string
+  venue: string
+  dietaryNotes?: string | null
+  message?: string | null
+}
+
+// Paramètres d'arrivée sur le site (?source=, utm_*…), pour l'attribution.
+export type LandingParams = Record<string, string>
+
+// État de composition sauvegardé dans un brouillon (colonne client_state).
+export interface ClientState {
+  selections: Selections
+  optionIds: string[]
+  currentStep: string | null // slug de l'étape ou page (formule, options, recap)
 }

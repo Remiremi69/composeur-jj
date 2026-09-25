@@ -1,11 +1,9 @@
 // Formatage des prix en euros, format français.
+// Le prix « normal » vient du noyau partagé : identique au site, aux emails
+// et au PDF.
+import { formatEuros } from '@core/format'
 
-const priceFmt = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-})
+export { formatPhone, optionPriceLabel } from '@core/format'
 
 const totalFmt = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -13,9 +11,9 @@ const totalFmt = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 0,
 })
 
-// Prix unitaire d'un plat (peut avoir des centimes : "2,80 €").
+// Prix (centimes seulement s'il y en a : « 130 € », « 4,50 € »).
 export function formatPrice(amount: number): string {
-  return priceFmt.format(amount)
+  return formatEuros(amount)
 }
 
 // Gros total / estimation (arrondi à l'euro : "1 800 €").

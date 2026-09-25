@@ -107,6 +107,14 @@ function AdminDashboard() {
           <TabButton active={tab === 'stats'} onClick={() => { setTab('stats'); setSelectedId(null) }}>
             Statistiques
           </TabButton>
+          {!data.loading && (
+            <span
+              className="ml-auto self-center rounded-full bg-cream px-3 py-1 text-xs text-muted"
+              title="Couples qui ont commencé leur menu sans l’avoir encore envoyé"
+            >
+              Menus en cours : <span className="font-medium text-ink">{data.draftsCount}</span>
+            </span>
+          )}
         </div>
       </header>
 

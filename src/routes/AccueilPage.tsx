@@ -2,8 +2,13 @@ import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { Turnstile } from '@marsidev/react-turnstile'
 import { GUESTS_MAX, GUESTS_MIN, validateCoupleInfo } from '@core/validation'
 import { useComposition } from '../context/CompositionContext'
+
+// Clé publique Cloudflare Turnstile : protège la création du brouillon
+// (qui peut donner lieu à un email de rappel). Widget absent si non définie.
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
 
 // Date du jour (heure locale) au format AAAA-MM-JJ, pour le champ date.
 function todayLocalIso(): string {
@@ -14,7 +19,10 @@ function todayLocalIso(): string {
 
 export default function AccueilPage() {
   const navigate = useNavigate()
-  const { couple, setCouple } = useComposition()
+  const { couple, setCouple, startDraft } = useComposition()
+  // Jeton anti-robot pour la création du brouillon. Jamais bloquant : sans
+  // jeton, le couple continue normalement (seule la sauvegarde est sautée).
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
 
   const [coupleNames, setCoupleNames] = useState(couple?.coupleNames ?? '')
   const [weddingDate, setWeddingDate] = useState(couple?.weddingDate ?? '')
@@ -39,6 +47,8 @@ export default function AccueilPage() {
       weddingDate,
       guestCount: guests,
     })
+    // Le brouillon est créé côté serveur à la sauvegarde qui suit.
+    startDraft(turnstileToken)
     navigate('/formule')
   }
 
@@ -99,9 +109,25 @@ export default function AccueilPage() {
               placeholder="vous@exemple.fr"
               className="input"
             />
+            <span className="text-xs text-muted">
+              Pour enregistrer votre menu, vous l’envoyer, et vous le rappeler si vous ne l’avez
+              pas terminé. Pas de publicité.
+            </span>
           </Field>
 
           {error && <p className="text-sm text-accent">{error}</p>}
+
+          {TURNSTILE_SITE_KEY && (
+            <div className="flex justify-center">
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                options={{ language: 'fr', theme: 'light' }}
+                onSuccess={setTurnstileToken}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

@@ -29,12 +29,15 @@ export function useCatalog(): CatalogState {
     let cancelled = false
 
     async function load() {
+      // Filtre explicite sur les éléments actifs : un admin connecté dans le
+      // même navigateur a le droit de lire les inactifs (back-office), mais le
+      // parcours public ne doit jamais les proposer.
       const [formulesRes, stepsRes, itemsRes, optionsRes, inclusionsRes] = await Promise.all([
-        supabase.from('formules').select('*').order('position', { ascending: true }),
+        supabase.from('formules').select('*').eq('is_active', true).order('position', { ascending: true }),
         supabase.from('steps').select('*').order('position', { ascending: true }),
-        supabase.from('items').select('*').order('position', { ascending: true }),
-        supabase.from('options').select('*').order('position', { ascending: true }),
-        supabase.from('inclusions').select('*').order('position', { ascending: true }),
+        supabase.from('items').select('*').eq('is_active', true).order('position', { ascending: true }),
+        supabase.from('options').select('*').eq('is_active', true).order('position', { ascending: true }),
+        supabase.from('inclusions').select('*').eq('is_active', true).order('position', { ascending: true }),
       ])
 
       if (cancelled) return

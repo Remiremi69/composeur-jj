@@ -1,0 +1,47 @@
+-- ============================================================
+-- LE COMPOSEUR — Relance horaire des menus non terminés
+-- pg_cron + pg_net appellent l'Edge Function send-draft-reminders.
+--
+-- ⚠️ À EXÉCUTER À LA MAIN dans le SQL Editor, APRÈS avoir déployé la
+--    fonction et défini le secret CRON_SECRET (cf. docs/DEPLOY.md).
+--
+-- Pourquoi ce n'est pas une migration :
+--   • il faut y mettre le secret, qui ne doit jamais être commité ;
+--   • une migration commentée serait marquée « appliquée » par db push
+--     et ne serait plus jamais rejouée une fois décommentée.
+--
+-- Le secret est rangé dans le coffre-fort de Supabase (Vault) : il
+-- n'apparaît pas en clair dans la définition de la tâche.
+-- ============================================================
+
+-- 1. Extensions (déjà disponibles sur Supabase, à activer une fois)
+-- create extension if not exists pg_cron;
+-- create extension if not exists pg_net;
+
+-- 2. Secret partagé avec la fonction (même valeur que CRON_SECRET).
+--    Remplacez COLLEZ_ICI_LE_CRON_SECRET avant d'exécuter.
+-- select vault.create_secret('COLLEZ_ICI_LE_CRON_SECRET', 'cron_secret', 'Relances Composeur');
+
+-- 3. Tâche : toutes les heures, à la 17ᵉ minute.
+-- select cron.schedule(
+--   'composeur-relances',
+--   '17 * * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://qlxswvjvorycpxbncppr.supabase.co/functions/v1/send-draft-reminders',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+--     ),
+--     body := '{}'::jsonb,
+--     timeout_milliseconds := 60000
+--   );
+--   $$
+-- );
+
+-- ------------------------------------------------------------
+-- Vérifier / suspendre / supprimer
+-- ------------------------------------------------------------
+-- select jobid, jobname, schedule, active from cron.job;
+-- select status, return_message, start_time from cron.job_run_details order by start_time desc limit 10;
+-- select cron.unschedule('composeur-relances');

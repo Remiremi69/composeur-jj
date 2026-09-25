@@ -82,6 +82,8 @@ export const options: Option[] = [
   { id: 'o-soupe', slug: 'soupe', category: 'en-cas', name: 'Soupe', description: null, price: 4.5, price_unit: 'par_personne', position: 1, is_active: true },
   { id: 'o-bar', slug: 'bar', category: 'bar-de-nuit', name: 'Bar de nuit', description: null, price: 250, price_unit: 'forfait', position: 2, is_active: true },
   { id: 'o-inactive', slug: 'vieille', category: 'en-cas', name: 'Ancienne option', description: null, price: 10, price_unit: 'forfait', position: 3, is_active: false },
+  { id: 'o-demande', slug: 'buffet-gateaux', category: 'dessert', name: 'Buffet des gâteaux', description: null, price: null, price_unit: 'forfait', position: 4, is_active: true },
+  { id: 'o-offert', slug: 'offert', category: 'services', name: 'Mise en place', description: null, price: 0, price_unit: 'forfait', position: 5, is_active: true },
 ]
 
 export const catalog: Catalog = { formules: [signature, ancienne], steps, items, options }
@@ -96,6 +98,10 @@ export function validPayload(overrides: Partial<CompositionPayload> = {}): Compo
     formuleId: 'form-signature',
     selections: { 'f-table': 1, p1: 1, p2: 1, p3: 1, p4: 1, c1: 1, m1: 4, m2: 2 },
     optionIds: ['o-soupe', 'o-bar'],
+    phone: '06 71 17 06 73',
+    venue: 'Domaine des Tilleuls, Saint-Cyr',
+    dietaryNotes: '3 végétariens, 1 sans gluten',
+    message: null,
     ...overrides,
   }
 }

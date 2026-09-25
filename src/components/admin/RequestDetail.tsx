@@ -8,7 +8,15 @@ import type {
   Option,
   Step,
 } from '../../types/db'
-import { formatDate, formatTotal } from '../../lib/format'
+import { formatDate, formatPhone, formatTotal, optionPriceLabel } from '../../lib/format'
+
+// Provenance lisible : source + paramètres utm utiles.
+function provenance(c: Composition): string | null {
+  const p = c.landing_params ?? {}
+  const details = [p.utm_medium, p.utm_campaign].filter(Boolean).join(' · ')
+  if (!c.source && !details) return null
+  return [c.source, details].filter(Boolean).join(' — ')
+}
 
 interface RequestDetailProps {
   composition: Composition
@@ -77,13 +85,44 @@ export default function RequestDetail({
         </div>
 
         <dl className="mt-5 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+          <Row
+            label="Téléphone"
+            value={
+              c.phone ? (
+                <a href={`tel:${c.phone}`} className="text-accent">
+                  {formatPhone(c.phone)}
+                </a>
+              ) : (
+                '—'
+              )
+            }
+          />
           <Row label="Email" value={<a href={`mailto:${c.email}`} className="text-accent">{c.email}</a>} />
+          <Row label="Lieu" value={c.venue ?? '—'} />
           <Row label="Formule" value={formule?.name ?? '—'} />
           <Row
             label="Estimation"
             value={c.total_estimate != null ? formatTotal(c.total_estimate) : '—'}
           />
+          <Row label="Provenance" value={provenance(c) ?? '—'} />
         </dl>
+
+        {(c.dietary_notes || c.message) && (
+          <div className="mt-5 flex flex-col gap-3 border-t border-line pt-4 text-sm">
+            {c.dietary_notes && (
+              <div>
+                <p className="text-muted">Allergies et régimes :</p>
+                <p className="whitespace-pre-line text-ink">{c.dietary_notes}</p>
+              </div>
+            )}
+            {c.message && (
+              <div>
+                <p className="text-muted">Message :</p>
+                <p className="whitespace-pre-line text-ink">{c.message}</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Menu */}
@@ -119,13 +158,7 @@ export default function RequestDetail({
                 {chosenOptions.map((o) => (
                   <li key={o.id} className="text-ink">
                     {o.name}
-                    <span className="text-muted">
-                      {' '}
-                      ·{' '}
-                      {o.price_unit === 'par_personne'
-                        ? `${formatTotal(o.price)}/pers`
-                        : `${formatTotal(o.price)} forfait`}
-                    </span>
+                    <span className="text-muted"> · {optionPriceLabel(o)}</span>
                   </li>
                 ))}
               </ul>

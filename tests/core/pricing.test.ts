@@ -45,6 +45,20 @@ describe('computeEstimate', () => {
     expect(e.optionsPerPerson).toBe(4.5)
   })
 
+  it('options par personne : multipliées par le nombre de convives dans le total', () => {
+    const e = computeEstimate(signature, items, {}, options, ['o-soupe'], 150)
+    expect(e.perPersonAllIn).toBe(134.5)
+    expect(e.total).toBe(134.5 * 150)
+  })
+
+  it('option « Sur demande » (prix vide) ou « Offerte » (0 €) : ne change pas le prix', () => {
+    const e = computeEstimate(signature, items, {}, options, ['o-demande', 'o-offert'], 100)
+    expect(e.optionsPerPerson).toBe(0)
+    expect(e.forfaitOptions).toBe(0)
+    expect(e.perPersonAllIn).toBe(130)
+    expect(e.total).toBe(13000)
+  })
+
   it('sans convives : seules les options au forfait comptent', () => {
     expect(computeEstimate(signature, items, {}, options, ['o-bar'], 0).total).toBe(250)
     expect(computeEstimate(signature, items, {}, options, ['o-bar'], -5).total).toBe(250)

@@ -1,13 +1,16 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Item, Selections, Step } from '../types/db'
 import type { RuleStatus } from '../lib/rules'
+import { formatPrice } from '../lib/format'
 import RuleCounter from './RuleCounter'
+import SaveIndicator from './SaveIndicator'
 
 interface PlateauProps {
   step: Step
   stepItems: Item[]
   selections: Selections
   status: RuleStatus
+  perPerson: number // prix par personne en direct, toutes options comprises
   isLastStep: boolean
   onRemove: (itemId: string) => void
   onSetQuantity: (itemId: string, qty: number) => void
@@ -20,6 +23,7 @@ export default function Plateau({
   stepItems,
   selections,
   status,
+  perPerson,
   isLastStep,
   onRemove,
   onSetQuantity,
@@ -32,8 +36,16 @@ export default function Plateau({
   return (
     <div className="sticky bottom-0 z-10 border-t border-line bg-surface/95 backdrop-blur">
       <div className="mx-auto max-w-3xl px-4 py-3">
-        {/* Règle de l'étape */}
-        <RuleCounter status={status} />
+        {/* Règle de l'étape + prix par personne en direct + sauvegarde */}
+        <div className="flex items-end gap-4">
+          <div className="flex-1">
+            <RuleCounter status={status} />
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-medium text-ink">≈ {formatPrice(perPerson)} / pers.</p>
+            <SaveIndicator />
+          </div>
+        </div>
 
         {/* Plateau : plats choisis pour cette étape */}
         {selected.length > 0 && (

@@ -4,7 +4,10 @@ import { motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { STEP_EMBEDDED_CATEGORIES } from '../lib/optionsConfig'
+import { computeEstimate } from '../lib/pricing'
+import { formatPrice } from '../lib/format'
 import OptionToggle from '../components/OptionToggle'
+import SaveIndicator from '../components/SaveIndicator'
 
 const CATEGORY_LABELS: Record<string, string> = {
   'bar-de-nuit': 'Bar de nuit',
@@ -17,13 +20,18 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default function OptionsPage() {
   const navigate = useNavigate()
-  const { couple, formuleId, optionIds, toggleOption } = useComposition()
-  const { options, loading, error } = useCatalog()
+  const { couple, formuleId, selections, optionIds, toggleOption, setCurrentStep } = useComposition()
+  const { formules, items, options, loading, error } = useCatalog()
 
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
     else if (!formuleId) navigate('/formule', { replace: true })
   }, [couple, formuleId, navigate])
+
+  // Dernière étape atteinte (pour la reprise et la relance).
+  useEffect(() => {
+    setCurrentStep('options')
+  }, [setCurrentStep])
 
   if (!couple || !formuleId) return null
   if (loading) return <Centered text="Chargement des options…" />
@@ -33,6 +41,9 @@ export default function OptionsPage() {
   const finalOptions = options.filter((o) => !STEP_EMBEDDED_CATEGORIES.includes(o.category))
   const categories: string[] = []
   for (const o of finalOptions) if (!categories.includes(o.category)) categories.push(o.category)
+  // Prix par personne en direct, toutes options comprises.
+  const formule = formules.find((f) => f.id === formuleId) ?? null
+  const estimate = computeEstimate(formule, items, selections, options, optionIds, couple.guestCount)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -70,10 +81,14 @@ export default function OptionsPage() {
           <button
             type="button"
             onClick={() => navigate('/composer')}
-            className="mr-auto rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+            className="rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
           >
             Retour
           </button>
+          <div className="mr-auto text-left">
+            <p className="text-sm font-medium text-ink">≈ {formatPrice(estimate.perPersonAllIn)} / pers.</p>
+            <SaveIndicator />
+          </div>
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}

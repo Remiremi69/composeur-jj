@@ -1,8 +1,9 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import type { Estimate } from '@core/pricing'
 import { supabase } from './supabase'
-import type { CoupleInfo } from '../context/CompositionContext'
+import type { ContactInfo, CoupleInfo } from '../context/CompositionContext'
 import type { Selections } from '../types/db'
+import { getAttribution } from './attribution'
 
 // Soumission d'un menu : UN SEUL appel à l'Edge Function submit-composition,
 // qui valide, recalcule le prix, enregistre et envoie les emails.
@@ -13,6 +14,8 @@ export interface SubmitInput {
   formuleId: string
   selections: Selections
   optionIds: string[]
+  contact: ContactInfo // « Pour vous recontacter »
+  shareToken: string | null // brouillon à transformer en demande envoyée
   startedAt: number // début de la composition (horloge du navigateur)
   website: string // champ piège : toujours vide pour un humain
   turnstileToken: string | null
@@ -41,6 +44,12 @@ export async function submitComposition(input: SubmitInput): Promise<SubmitResul
       formuleId: input.formuleId,
       selections: input.selections,
       optionIds: input.optionIds,
+      phone: input.contact.phone,
+      venue: input.contact.venue,
+      dietaryNotes: input.contact.dietaryNotes || null,
+      message: input.contact.message || null,
+      shareToken: input.shareToken,
+      ...getAttribution(),
       startedAt: input.startedAt,
       sentAt: Date.now(),
       website: input.website,

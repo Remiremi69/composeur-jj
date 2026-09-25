@@ -8,12 +8,17 @@ import InclusionsPanel from '../components/InclusionsPanel'
 
 export default function FormulePage() {
   const navigate = useNavigate()
-  const { couple, formuleId, setFormule } = useComposition()
+  const { couple, formuleId, setFormule, setCurrentStep } = useComposition()
   const { formules, inclusions, loading, error } = useCatalog()
 
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
   }, [couple, navigate])
+
+  // Dernière étape atteinte (pour la reprise et la relance).
+  useEffect(() => {
+    setCurrentStep('formule')
+  }, [setCurrentStep])
 
   if (!couple) return null
   if (loading) return <Centered text="Chargement des formules…" />

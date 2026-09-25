@@ -1,21 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+import {
+  MAX_DIETARY_LENGTH,
+  MAX_MESSAGE_LENGTH,
+  MAX_VENUE_LENGTH,
+  normalizePhone,
+  validateContactInfo,
+} from '@core/validation'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { itemsForStep } from '../lib/rules'
 import { computeEstimate } from '../lib/pricing'
-import { formatDate, formatPrice } from '../lib/format'
+import { formatDate, formatPhone, optionPriceLabel } from '../lib/format'
 import { submitComposition } from '../lib/submit'
 import InclusionsPanel from '../components/InclusionsPanel'
+import MenuView from '../components/MenuView'
+import PriceSummary from '../components/PriceSummary'
 
 // Clé publique Cloudflare Turnstile : le widget n'apparaît que si elle est définie.
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
+// Politique de confidentialité (site vitrine de J&J).
+const PRIVACY_URL = import.meta.env.VITE_PRIVACY_URL as string | undefined
 
 export default function RecapPage() {
   const navigate = useNavigate()
-  const { couple, formuleId, selections, optionIds, startedAt } = useComposition()
+  const {
+    couple,
+    formuleId,
+    selections,
+    optionIds,
+    startedAt,
+    contact,
+    setContact,
+    shareToken,
+    setCurrentStep,
+    markSubmitted,
+  } = useComposition()
   const { formules, steps, items, options, inclusions, loading } = useCatalog()
   const [submitting, setSubmitting] = useState(false)
   const [submitErrors, setSubmitErrors] = useState<string[]>([])
@@ -31,6 +54,16 @@ export default function RecapPage() {
     else if (!formuleId) navigate('/formule', { replace: true })
   }, [couple, formuleId, navigate])
 
+  // Dernière étape atteinte (pour la reprise et la relance).
+  useEffect(() => {
+    setCurrentStep('recap')
+  }, [setCurrentStep])
+
+  // Dès que le couple corrige ses informations, on retire les anciennes erreurs.
+  useEffect(() => {
+    setSubmitErrors([])
+  }, [contact])
+
   if (!couple || !formuleId) return null
   if (loading) {
     return (
@@ -45,19 +78,34 @@ export default function RecapPage() {
     ? steps.filter((s) => formule.included_steps.includes(s.slug))
     : steps
   // Même calcul que le serveur : le prix affiché est le prix enregistré.
-  const estimate = computeEstimate(
-    formule,
-    items,
-    selections,
-    options,
-    optionIds,
-    couple.guestCount,
-  )
+  const estimate = computeEstimate(formule, items, selections, options, optionIds, couple.guestCount)
   const needsTurnstile = Boolean(TURNSTILE_SITE_KEY)
-  const chosenOptions = options.filter((o) => optionIds.includes(o.id))
+
+  const sections = activeSteps
+    .map((step) => ({
+      title: step.title,
+      lines: itemsForStep(step, items)
+        .filter((it) => (selections[it.id] ?? 0) > 0)
+        .map((it) => ({
+          name: it.name,
+          description: it.description,
+          supplement: it.supplement,
+          quantity: selections[it.id],
+        })),
+    }))
+    .filter((s) => s.lines.length > 0)
+  const chosenOptions = options
+    .filter((o) => optionIds.includes(o.id))
+    .map((o) => ({ name: o.name, priceLabel: optionPriceLabel(o) }))
 
   async function handleSubmit() {
     if (!couple || !formuleId) return
+    // Mêmes règles que le serveur, vérifiées avant d'envoyer.
+    const contactErrors = validateContactInfo(contact)
+    if (contactErrors.length > 0) {
+      setSubmitErrors(contactErrors)
+      return
+    }
     setSubmitting(true)
     setSubmitErrors([])
     const result = await submitComposition({
@@ -65,13 +113,18 @@ export default function RecapPage() {
       formuleId,
       selections,
       optionIds,
+      contact,
+      shareToken,
       startedAt: startedAt ?? mountedAt,
       website,
       turnstileToken,
     })
     setSubmitting(false)
     if (result.ok) {
-      navigate('/confirmation', { state: { emailSent: result.emailSent } })
+      markSubmitted(result.shareToken)
+      navigate('/confirmation', {
+        state: { emailSent: result.emailSent, shareToken: result.shareToken },
+      })
       return
     }
     setSubmitErrors(result.errors)
@@ -80,6 +133,12 @@ export default function RecapPage() {
       turnstileRef.current?.reset()
       setTurnstileToken(null)
     }
+  }
+
+  // Affiche le numéro sous sa forme normalisée dès qu'il est valide.
+  function tidyPhone() {
+    const normalized = normalizePhone(contact.phone)
+    if (normalized) setContact({ phone: formatPhone(normalized) })
   }
 
   return (
@@ -110,70 +169,12 @@ export default function RecapPage() {
           <span className="h-px w-12 bg-line" />
         </div>
 
-        {/* Le menu, étape par étape */}
-        <div className="flex flex-col gap-8">
-          {activeSteps.map((step) => {
-            const chosen = itemsForStep(step, items).filter(
-              (it) => (selections[it.id] ?? 0) > 0,
-            )
-            if (chosen.length === 0) return null
+        {/* Le menu, étape par étape, puis les options */}
+        <MenuView sections={sections} options={chosenOptions} />
 
-            return (
-              <section key={step.id} className="text-center">
-                <h2 className="text-xs uppercase tracking-[0.2em] text-muted">{step.title}</h2>
-                <ul className="mt-3 flex flex-col gap-2">
-                  {chosen.map((it) => (
-                    <li key={it.id}>
-                      <p className="font-display text-lg text-ink">
-                        {it.name}
-                        {it.supplement > 0 && (
-                          <span className="text-muted"> · + {formatPrice(it.supplement)}/pers</span>
-                        )}
-                      </p>
-                      {it.description && (
-                        <p className="mx-auto max-w-md text-sm text-muted">{it.description}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
-
-        {/* Options choisies */}
-        {chosenOptions.length > 0 && (
-          <section className="mt-8 text-center">
-            <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Vos options</h2>
-            <ul className="mt-3 flex flex-col gap-2">
-              {chosenOptions.map((o) => (
-                <li key={o.id}>
-                  <p className="font-display text-lg text-ink">
-                    {o.name}
-                    <span className="text-muted">
-                      {' '}
-                      ·{' '}
-                      {o.price_unit === 'par_personne'
-                        ? `${formatPrice(o.price)}/pers`
-                        : `${formatPrice(o.price)} forfait`}
-                    </span>
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Estimation */}
-        <div className="mt-10 rounded-card border border-line bg-surface p-6 text-center">
-          <p className="text-sm text-muted">Estimation</p>
-          <p className="mt-1 font-display text-3xl text-ink">
-            {formatPrice(estimate.perPersonAllIn)}
-            <span className="ml-1 text-base font-normal text-muted">par personne</span>
-          </p>
-          <p className="mt-2 text-xs text-muted">
-            Estimation indicative — votre traiteur J&amp;J vous confirmera le devis définitif.
-          </p>
+        {/* Estimation : prix par personne en grand, détail dépliable */}
+        <div className="mt-10">
+          <PriceSummary estimate={estimate} guestCount={couple.guestCount} formuleName={formule?.name} />
         </div>
 
         {/* Ce qui est toujours compris */}
@@ -182,6 +183,58 @@ export default function RecapPage() {
             <InclusionsPanel inclusions={inclusions} />
           </div>
         )}
+
+        {/* Pour vous recontacter */}
+        <section className="mt-10 rounded-card border border-line bg-surface p-6">
+          <h2 className="font-display text-2xl text-ink">Pour vous recontacter</h2>
+          <p className="mt-1 text-sm text-muted">
+            Votre traiteur vous rappellera pour affiner votre menu avec vous.
+          </p>
+          <div className="mt-5 flex flex-col gap-4">
+            <Field label="Téléphone" required>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={contact.phone}
+                onChange={(e) => setContact({ phone: e.target.value })}
+                onBlur={tidyPhone}
+                placeholder="06 12 34 56 78"
+                className="input"
+              />
+            </Field>
+            <Field label="Lieu de réception" required hint="Nom du domaine ou commune">
+              <input
+                type="text"
+                value={contact.venue}
+                maxLength={MAX_VENUE_LENGTH}
+                onChange={(e) => setContact({ venue: e.target.value })}
+                placeholder="Domaine des Tilleuls, Saint-Cyr"
+                className="input"
+              />
+            </Field>
+            <Field label="Allergies et régimes">
+              <textarea
+                rows={3}
+                value={contact.dietaryNotes}
+                maxLength={MAX_DIETARY_LENGTH}
+                onChange={(e) => setContact({ dietaryNotes: e.target.value })}
+                placeholder="3 végétariens, 1 sans gluten, 2 enfants"
+                className="input resize-y"
+              />
+            </Field>
+            <Field label="Message">
+              <textarea
+                rows={3}
+                value={contact.message}
+                maxLength={MAX_MESSAGE_LENGTH}
+                onChange={(e) => setContact({ message: e.target.value })}
+                placeholder="Une question, une envie particulière…"
+                className="input resize-y"
+              />
+            </Field>
+          </div>
+        </section>
 
         {/* Champ piège anti-robot : invisible et inaccessible pour un humain */}
         <div
@@ -235,6 +288,23 @@ export default function RecapPage() {
           >
             {submitting ? 'Envoi en cours…' : 'Envoyer à notre traiteur'}
           </button>
+          <p className="text-center text-xs text-muted">
+            En envoyant votre menu, vous acceptez que J&amp;J Traiteur utilise ces informations pour
+            vous recontacter au sujet de votre mariage.
+            {PRIVACY_URL && (
+              <>
+                {' '}
+                <a
+                  href={PRIVACY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-ink"
+                >
+                  Politique de confidentialité
+                </a>
+              </>
+            )}
+          </p>
           <button
             type="button"
             onClick={() => navigate('/composer')}
@@ -246,5 +316,28 @@ export default function RecapPage() {
         </div>
       </motion.div>
     </div>
+  )
+}
+
+function Field({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string
+  required?: boolean
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-ink">
+        {label}
+        {required ? <span className="text-accent"> *</span> : <span className="font-normal text-muted"> (facultatif)</span>}
+      </span>
+      {children}
+      {hint && <span className="text-xs text-muted">{hint}</span>}
+    </label>
   )
 }

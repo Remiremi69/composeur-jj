@@ -5,7 +5,9 @@
 
 export type {
   Catalog,
+  ClientState,
   CompositionPayload,
+  LandingParams,
   Formule,
   Inclusion,
   Item,
@@ -34,6 +36,16 @@ export interface Composition {
   share_token: string
   emails_sent_at: string | null // renseigné quand les emails sont partis
   updated_at: string
+  // Lot 2 — recontact et suivi
+  venue: string | null
+  dietary_notes: string | null
+  message: string | null
+  source: string | null
+  landing_params: Record<string, string> | null
+  last_step: string | null
+  reminder_sent_at: string | null
+  reminders_opt_out: boolean
+  consent_at: string | null
 }
 
 export interface CompositionItem {

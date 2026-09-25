@@ -1,28 +1,63 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { evaluateStep, itemsForStep, resolveStep } from '../lib/rules'
+import { computeEstimate } from '../lib/pricing'
 import DishCard from '../components/DishCard'
 import CategoryAccordion from '../components/CategoryAccordion'
 import IncludedList from '../components/IncludedList'
 import OptionToggle from '../components/OptionToggle'
 import Plateau from '../components/Plateau'
 import { STEP_EMBEDDED_CATEGORIES } from '../lib/optionsConfig'
+import type { Formule, Step } from '../types/db'
+
+// Étapes de la formule, dans l'ordre du repas.
+function stepsOf(formule: Formule | null, steps: Step[]): Step[] {
+  return formule ? steps.filter((s) => formule.included_steps.includes(s.slug)) : steps
+}
+
+// Index de l'étape en cours. Depuis les options ou le récap, on revient à la
+// dernière étape ; sinon (formule, étape inconnue) à la première.
+function indexOf(activeSteps: Step[], currentStep: string | null): number {
+  const idx = activeSteps.findIndex((s) => s.slug === currentStep)
+  if (idx >= 0) return idx
+  return currentStep === 'options' || currentStep === 'recap' ? activeSteps.length - 1 : 0
+}
 
 export default function ComposerPage() {
   const navigate = useNavigate()
-  const { couple, formuleId, selections, toggleItem, setQuantity, removeItem, optionIds, toggleOption } =
-    useComposition()
+  const {
+    couple,
+    formuleId,
+    selections,
+    toggleItem,
+    setQuantity,
+    removeItem,
+    optionIds,
+    toggleOption,
+    currentStep,
+    setCurrentStep,
+  } = useComposition()
   const { formules, steps, items, options, loading, error } = useCatalog()
-  const [index, setIndex] = useState(0)
 
   // Garde-fous : il faut un couple ET une formule choisie.
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
     else if (!formuleId) navigate('/formule', { replace: true })
   }, [couple, formuleId, navigate])
+
+  // L'étape en cours (enregistrée dans le brouillon) doit être une étape de
+  // la formule : sinon on la recale.
+  useEffect(() => {
+    if (loading || !formuleId) return
+    const formule = formules.find((f) => f.id === formuleId) ?? null
+    const active = stepsOf(formule, steps)
+    if (active.length === 0) return
+    const slug = active[indexOf(active, currentStep)].slug
+    if (slug !== currentStep) setCurrentStep(slug)
+  }, [loading, formuleId, formules, steps, currentStep, setCurrentStep])
 
   if (!couple || !formuleId) return null
 
@@ -31,15 +66,13 @@ export default function ComposerPage() {
 
   const formule = formules.find((f) => f.id === formuleId) ?? null
   // On ne garde que les étapes incluses dans la formule choisie.
-  const activeSteps = formule
-    ? steps.filter((s) => formule.included_steps.includes(s.slug))
-    : steps
+  const activeSteps = stepsOf(formule, steps)
 
   if (activeSteps.length === 0) {
     return <CenteredMessage text="Aucune étape disponible pour cette formule." />
   }
 
-  const safeIndex = Math.min(index, activeSteps.length - 1)
+  const safeIndex = indexOf(activeSteps, currentStep)
   // Étape courante, avec la règle propre à la formule choisie (nb de pièces…).
   const step = resolveStep(activeSteps[safeIndex], formule)
   const stepItems = itemsForStep(step, items)
@@ -49,10 +82,12 @@ export default function ComposerPage() {
     (o) => o.category === step.slug && STEP_EMBEDDED_CATEGORIES.includes(o.category),
   )
   const isLastStep = safeIndex === activeSteps.length - 1
+  // Prix par personne en direct, toutes options comprises.
+  const estimate = computeEstimate(formule, items, selections, options, optionIds, couple.guestCount)
 
   function goNext() {
     if (safeIndex < activeSteps.length - 1) {
-      setIndex(safeIndex + 1)
+      setCurrentStep(activeSteps[safeIndex + 1].slug)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } else {
       navigate('/options')
@@ -61,7 +96,7 @@ export default function ComposerPage() {
 
   function goBack() {
     if (safeIndex > 0) {
-      setIndex(safeIndex - 1)
+      setCurrentStep(activeSteps[safeIndex - 1].slug)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } else {
       navigate('/formule')
@@ -138,6 +173,7 @@ export default function ComposerPage() {
         stepItems={stepItems}
         selections={selections}
         status={status}
+        perPerson={estimate.perPersonAllIn}
         isLastStep={isLastStep}
         onRemove={removeItem}
         onSetQuantity={setQuantity}

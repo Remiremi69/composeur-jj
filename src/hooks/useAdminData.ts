@@ -18,6 +18,7 @@ interface AdminData {
   steps: Step[]
   items: Item[]
   options: Option[]
+  draftsCount: number // menus commencés mais pas encore envoyés
   loading: boolean
   error: string | null
   refresh: () => void
@@ -34,20 +35,27 @@ export function useAdminData(): AdminData {
     steps: [],
     items: [],
     options: [],
+    draftsCount: 0,
     loading: true,
     error: null,
   })
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true }))
-    const [comps, cItems, cOptions, formules, steps, items, options] = await Promise.all([
-      supabase.from('compositions').select('*').order('created_at', { ascending: false }),
+    const [comps, cItems, cOptions, formules, steps, items, options, drafts] = await Promise.all([
+      // Seules les demandes ENVOYÉES : les brouillons fausseraient la liste et les stats.
+      supabase
+        .from('compositions')
+        .select('*')
+        .eq('status', 'submitted')
+        .order('created_at', { ascending: false }),
       supabase.from('composition_items').select('*'),
       supabase.from('composition_options').select('*'),
       supabase.from('formules').select('*').order('position', { ascending: true }),
       supabase.from('steps').select('*').order('position', { ascending: true }),
       supabase.from('items').select('*').order('position', { ascending: true }),
       supabase.from('options').select('*').order('position', { ascending: true }),
+      supabase.from('compositions').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     ])
 
     const error =
@@ -68,6 +76,7 @@ export function useAdminData(): AdminData {
       steps: steps.data ?? [],
       items: items.data ?? [],
       options: options.data ?? [],
+      draftsCount: drafts.count ?? 0,
       loading: false,
       error,
     })
