@@ -25,14 +25,14 @@ export function FormulesSkeleton() {
         <Line className="mx-auto mt-3 h-8 w-72" />
         <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex flex-col gap-3 rounded-card border border-line bg-surface p-6">
+            <div key={i} className="flex flex-col gap-3 rounded-card border border-lin bg-fond p-6">
               <Line className="mx-auto h-7 w-32" />
               <Line className="mx-auto w-48" />
-              <div className="my-3 h-px bg-line" />
+              <div className="my-3 h-px bg-lin" />
               {[0, 1, 2, 3, 4, 5].map((j) => (
                 <Line key={j} className="mx-auto w-40" />
               ))}
-              <div className="skeleton mt-4 h-11 rounded-full" />
+              <div className="skeleton mt-4 h-11 rounded-card" />
             </div>
           ))}
         </div>
@@ -48,14 +48,14 @@ export function ScreenSkeleton() {
       <div className="mx-auto max-w-3xl px-4 pt-8">
         <div className="flex gap-1.5">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="skeleton h-7 w-20 rounded-full" />
+            <div key={i} className="skeleton h-7 w-20 rounded-card" />
           ))}
         </div>
         <Line className="mt-6 h-8 w-64" />
         <Line className="mt-2 w-80" />
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="overflow-hidden rounded-card bg-surface">
+            <div key={i} className="overflow-hidden rounded-card bg-fond">
               <div className="skeleton aspect-[4/3] rounded-none" />
               <div className="flex flex-col gap-2 p-3">
                 <Line className="w-3/4" />
@@ -77,8 +77,8 @@ export function ListSkeleton() {
         <Line className="h-8 w-48" />
         <div className="mt-8 flex flex-col gap-3">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="flex gap-3 rounded-card border border-line bg-surface p-4">
-              <div className="skeleton h-5 w-5 rounded-md" />
+            <div key={i} className="flex gap-3 rounded-card border border-lin bg-fond p-4">
+              <div className="skeleton h-5 w-5 rounded-sm" />
               <div className="flex flex-1 flex-col gap-2">
                 <Line className="w-1/2" />
                 <Line className="h-3 w-3/4" />

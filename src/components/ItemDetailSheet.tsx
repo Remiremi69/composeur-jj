@@ -52,7 +52,7 @@ export default function ItemDetailSheet({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="max-h-[88vh] w-full overflow-y-auto rounded-t-card bg-surface sm:max-w-lg sm:rounded-card"
+            className="max-h-[88vh] w-full overflow-y-auto rounded-t-card bg-fond sm:max-w-lg sm:rounded-card"
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}
@@ -77,7 +77,7 @@ export default function ItemDetailSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Fermer la fiche"
-                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-lg text-ink shadow-[var(--shadow-sm)]"
+                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-fond/90 text-lg text-ink shadow-[var(--shadow-sm)]"
               >
                 ×
               </button>
@@ -85,11 +85,11 @@ export default function ItemDetailSheet({
 
             <div className="flex flex-col gap-4 p-6">
               <div>
-                <h2 id={titleId} className="font-display text-2xl text-ink">
+                <h2 id={titleId} className="font-display text-2xl text-slate">
                   {item.name}
                 </h2>
                 {item.supplement > 0 && (
-                  <p className="mt-1 text-sm font-medium text-accent">
+                  <p className="mt-1 text-sm font-medium text-slate">
                     Supplément : + {formatPrice(item.supplement)} / pers
                   </p>
                 )}
@@ -102,7 +102,7 @@ export default function ItemDetailSheet({
                   <p className="text-xs uppercase tracking-[0.15em] text-muted">Régimes</p>
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {item.labels.map((code) => (
-                      <span key={code} className="rounded-full bg-cream px-2 py-0.5 text-xs text-accent">
+                      <span key={code} className="rounded-card bg-lin-light px-2 py-0.5 text-xs text-slate">
                         {dietaryLabel(code)}
                       </span>
                     ))}
@@ -127,10 +127,10 @@ export default function ItemDetailSheet({
                   onToggle()
                   onClose()
                 }}
-                className={`mt-2 rounded-full px-6 py-3 font-semibold transition-colors ${
+                className={`mt-2 rounded-card px-6 py-3 font-semibold transition-colors ${
                   selected
-                    ? 'border border-line text-ink hover:border-accent'
-                    : 'bg-accent text-cream hover:bg-accent-dark'
+                    ? 'border border-lin text-ink hover:border-slate'
+                    : 'bg-slate text-lin hover:bg-slate-deep'
                 }`}
               >
                 {selected ? 'Retirer' : 'Choisir'}

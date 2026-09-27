@@ -56,10 +56,10 @@ export default function OptionsPage() {
   const lastScreen = screens[screens.length - 1]
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex w-full flex-1 flex-col">
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 pb-6 pt-10">
-        <p className="text-xs uppercase tracking-[0.2em] text-accent">Dernière étape</p>
-        <h1 className="mt-2 text-3xl leading-tight text-ink">Les options</h1>
+        <p className="text-xs uppercase tracking-[0.2em] text-slate">Dernière étape</p>
+        <h1 className="mt-2 text-3xl leading-tight text-slate">Les options</h1>
         <p className="mt-2 text-muted">
           Quelques touches en plus pour prolonger la fête — entièrement facultatives.
         </p>
@@ -86,12 +86,12 @@ export default function OptionsPage() {
       </main>
 
       {/* Barre d'action */}
-      <div className="sticky bottom-0 border-t border-line bg-surface/95 backdrop-blur">
+      <div className="sticky bottom-0 border-t border-lin bg-fond/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl flex-wrap items-center gap-3 px-5 py-3">
           <button
             type="button"
             onClick={() => navigate(lastScreen ? `/composer/${lastScreen.slug}` : '/formule')}
-            className="rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+            className="rounded-card px-4 py-2 text-sm font-medium text-muted hover:text-ink"
           >
             Retour
           </button>
@@ -103,7 +103,7 @@ export default function OptionsPage() {
             type="button"
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate('/recap')}
-            className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-cream transition-colors hover:bg-accent-dark"
+            className="rounded-card bg-slate px-6 py-3 text-sm font-semibold text-lin transition-colors hover:bg-slate-deep"
           >
             {fromRecap ? 'Revenir au récapitulatif' : 'Voir notre menu'}
           </motion.button>
@@ -115,7 +115,7 @@ export default function OptionsPage() {
 
 function Centered({ text }: { text: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center px-6 text-center text-muted">
+    <div className="flex w-full flex-1 items-center justify-center px-6 text-center text-muted">
       {text}
     </div>
   )

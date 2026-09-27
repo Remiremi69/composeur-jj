@@ -20,7 +20,7 @@ function EditLink({ to, title }: { to: string; title: string }) {
       to={to}
       state={{ fromRecap: true }}
       aria-label={`Modifier : ${title}`}
-      className="ml-2 text-xs font-medium normal-case tracking-normal text-accent underline-offset-2 hover:underline"
+      className="ml-2 text-xs font-medium normal-case tracking-normal text-slate underline-offset-2 hover:underline"
     >
       Modifier
     </Link>

@@ -12,6 +12,16 @@ export default function AdminPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(false)
 
+  // Back-office : jamais indexé par les moteurs de recherche (en plus de
+  // robots.txt). La balise est retirée en quittant la page.
+  useEffect(() => {
+    const meta = document.createElement('meta')
+    meta.name = 'robots'
+    meta.content = 'noindex, nofollow'
+    document.head.appendChild(meta)
+    return () => meta.remove()
+  }, [])
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
@@ -54,15 +64,15 @@ export default function AdminPage() {
 function AccessDenied({ email }: { email: string | null }) {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
-      <p className="text-xs uppercase tracking-[0.2em] text-accent">J&amp;J Traiteur</p>
-      <h1 className="mt-2 font-display text-3xl text-ink">Accès réservé</h1>
+      <p className="text-xs uppercase tracking-[0.2em] text-slate">J&amp;J Traiteur</p>
+      <h1 className="mt-2 font-display text-3xl text-slate">Accès réservé</h1>
       <p className="mt-3 text-muted">
         Ce compte{email ? ` (${email})` : ''} n'a pas accès à l'espace traiteur.
       </p>
       <button
         type="button"
         onClick={() => supabase.auth.signOut()}
-        className="mt-6 rounded-full bg-accent px-6 py-3 font-semibold text-cream transition-colors hover:bg-accent-dark"
+        className="mt-6 rounded-card bg-slate px-6 py-3 font-semibold text-lin transition-colors hover:bg-slate-deep"
       >
         Se déconnecter
       </button>
@@ -85,12 +95,12 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="border-b border-line bg-surface">
+    <div className="min-h-screen bg-lin-light">
+      <header className="border-b border-lin bg-fond">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-accent">J&amp;J Traiteur</p>
-            <h1 className="font-display text-xl text-ink">Espace traiteur</h1>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate">J&amp;J Traiteur</p>
+            <h1 className="font-display text-xl text-slate">Espace traiteur</h1>
           </div>
           <button
             type="button"
@@ -109,7 +119,7 @@ function AdminDashboard() {
           </TabButton>
           {!data.loading && (
             <span
-              className="ml-auto self-center rounded-full bg-cream px-3 py-1 text-xs text-muted"
+              className="ml-auto self-center rounded-card bg-lin-light px-3 py-1 text-xs text-muted"
               title="Couples qui ont commencé leur menu sans l’avoir encore envoyé"
             >
               Menus en cours : <span className="font-medium text-ink">{data.draftsCount}</span>
@@ -122,7 +132,7 @@ function AdminDashboard() {
         {data.loading ? (
           <p className="py-12 text-center text-muted">Chargement…</p>
         ) : data.error ? (
-          <p className="py-12 text-center text-accent">Erreur : {data.error}</p>
+          <p className="py-12 text-center text-slate">Erreur : {data.error}</p>
         ) : tab === 'stats' ? (
           <StatsPanel
             compositions={data.compositions}
@@ -168,7 +178,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={`-mb-px border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-        active ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
+        active ? 'border-slate text-ink' : 'border-transparent text-muted hover:text-ink'
       }`}
     >
       {children}

@@ -3,7 +3,7 @@
 // et au PDF.
 import { formatEuros } from '@core/format'
 
-export { formatPhone, optionPriceLabel } from '@core/format'
+export { formatPhone, optionPriceLabel, telHref } from '@core/format'
 
 const totalFmt = new Intl.NumberFormat('fr-FR', {
   style: 'currency',

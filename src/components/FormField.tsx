@@ -37,7 +37,7 @@ export default function FormField({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium text-ink">
         {label}
-        {required && <span className="text-accent"> *</span>}
+        {required && <span className="text-slate"> *</span>}
         {optional && <span className="font-normal text-muted"> (facultatif)</span>}
       </label>
       {children({

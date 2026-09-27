@@ -21,8 +21,8 @@ export default function AdminLogin() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
-      <p className="text-sm uppercase tracking-[0.2em] text-accent">J&amp;J Traiteur</p>
-      <h1 className="mt-2 text-3xl text-ink">Espace traiteur</h1>
+      <p className="text-sm uppercase tracking-[0.2em] text-slate">J&amp;J Traiteur</p>
+      <h1 className="mt-2 text-3xl text-slate">Espace traiteur</h1>
       <p className="mt-2 text-muted">Connectez-vous pour accéder à vos demandes.</p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
@@ -47,12 +47,12 @@ export default function AdminLogin() {
           />
         </label>
 
-        {error && <p className="text-sm text-accent">{error}</p>}
+        {error && <p className="text-sm text-slate">{error}</p>}
 
         <button
           type="submit"
           disabled={loading}
-          className="mt-2 rounded-full bg-accent px-6 py-3.5 font-semibold text-cream transition-colors hover:bg-accent-dark disabled:opacity-60"
+          className="mt-2 rounded-card bg-slate px-6 py-3.5 font-semibold text-lin transition-colors hover:bg-slate-deep disabled:opacity-60"
         >
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>

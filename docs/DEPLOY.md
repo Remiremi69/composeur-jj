@@ -600,3 +600,284 @@ Dans une fenêtre de navigation privée, sur https://composeur-jj.vercel.app :
 delete from public.compositions where email = 'VOTRE_EMAIL';
 delete from public.submission_log;
 ```
+
+---
+
+## Lot 4 — Identité et après-envoi
+
+### Ce qui change
+
+- Le site prend la **charte de j-jtraiteur.fr** : ardoise, lin, bronze,
+  polices Playfair Display et Lato (hébergées avec le site), rayons sobres.
+- **En-tête de marque** sur toutes les pages : lien « ← j-jtraiteur.fr »,
+  logo, téléphone cliquable.
+- **Page de confirmation** : « Jessica et Jérôme vous appellent sous 48 h »,
+  prochaine étape (dégustation), partage du menu (lien, WhatsApp), PDF.
+- **PDF et emails** aux couleurs de J&J : logo, pied de page avec téléphone,
+  email, site et SIRET ; bouton « Voir mon menu en ligne » pour le couple.
+- Nouvelle fonction **`menu-pdf`** : PDF du menu **sans** les coordonnées
+  du couple (le lien du menu peut circuler).
+- `/admin` n'est plus indexé par les moteurs de recherche ; `robots.txt`
+  ajouté.
+
+**Pas de migration. Pas de nouveau secret.** Deux variables Vercel.
+
+> ⚠️ Le commit du lot 4 est suivi d'un **second commit** qui contient la
+> redirection vers `composer.j-jtraiteur.fr` (fichier `vercel.json`). Il ne
+> doit partir **qu'au moment de la bascule** (section suivante) : envoyé trop
+> tôt, il redirigerait tous les visiteurs vers une adresse qui ne fonctionne
+> pas encore. D'où la commande particulière de l'étape 5.
+
+---
+
+### Étape 1 — Fichiers de marque
+
+Déposez dans `public/brand/` :
+
+| Fichier | Format | Sert à |
+|---|---|---|
+| `jj-logo-slate.png` | PNG, fond transparent, ~ 600 px de large, < 100 ko | en-tête du site, des emails et du PDF |
+| `favicon-32.png` | PNG 32 × 32 | icône de l'onglet |
+| `apple-touch-icon.png` | PNG 180 × 180 | icône sur l'écran d'accueil d'un iPhone |
+| `og-image.jpg` | JPG 1200 × 630 | image affichée quand on partage le lien (WhatsApp, Facebook) |
+
+Puis synchronisez le logo avec le code des fonctions :
+
+```bash
+npm run brand:sync
+```
+
+Attendu : `Logo synchronisé (… ko) → supabase/functions/_shared/brand-logo.ts`.
+Commitez les fichiers (je peux le faire pour vous).
+
+> **Pourquoi ce script ?** Le site (Vercel) sert directement les fichiers de
+> `public/brand/` : le logo de l'en-tête et celui des emails (chargé depuis
+> l'adresse du site) apparaissent dès le déploiement du front. Mais les
+> **fonctions** (Supabase), qui fabriquent le PDF, ne voient pas ce dossier :
+> le logo du PDF est donc recopié dans leur code (`_shared/brand-logo.ts`,
+> en base64) par `npm run brand:sync`, et n'arrive dans le PDF qu'une fois
+> les fonctions **redéployées** (étape 3). Si le script a été oublié,
+> `npm test` échoue avec le message « lancez npm run brand:sync ».
+
+> Sans ces fichiers, tout fonctionne : « J&J Traiteur » en texte à la place
+> du logo, pas d'icône d'onglet ni d'image de partage.
+
+---
+
+### Étape 2 — Variables du front sur Vercel
+
+Vercel → **composeur-jj** → **Settings** → **Environment Variables**,
+environnement **Production** :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_APP_URL` | `https://composeur-jj.vercel.app` (sera changée à la bascule) |
+| `VITE_BOOKING_URL` | lien de prise de rendez-vous (Calendly…), **ou rien** : le bouton devient alors « Nous appeler » |
+
+Ne redéployez pas : elles seront prises en compte à l'étape 4.
+
+---
+
+### Étape 3 — Déployer les fonctions (avant le front)
+
+Pas de migration pour ce lot.
+
+```bash
+npx supabase functions deploy menu-pdf
+```
+```bash
+npx supabase functions deploy submit-composition
+```
+```bash
+npx supabase functions deploy get-draft
+```
+```bash
+npx supabase functions deploy send-draft-reminders --no-verify-jwt
+```
+
+Chaque commande doit afficher « Deployed Functions ». Les fonctions d'abord :
+ainsi le bouton « Télécharger le PDF » marche dès l'arrivée du nouveau site.
+Les nouvelles fonctions restent compatibles avec l'ancien site.
+
+> Logo déposé ou changé plus tard : voir « Ajouter ou changer le logo »
+> ci-dessous.
+
+---
+
+### Étape 4 — Déployer le front (SANS la redirection)
+
+Envoyez tout **sauf** le dernier commit (celui de la redirection) :
+
+```bash
+git push origin HEAD~1:master
+```
+
+Attendez **Ready** sur Vercel. https://composeur-jj.vercel.app doit s'ouvrir
+normalement (pas de redirection).
+
+---
+
+### Étape 5 — Checklist de tests en production
+
+Fenêtre de navigation privée sur https://composeur-jj.vercel.app :
+
+**Charte et en-tête**
+- [ ] Couleurs ardoise / lin, titres en Playfair Display, texte en Lato,
+  coins peu arrondis (boutons rectangulaires).
+- [ ] En-tête : « ← j-jtraiteur.fr » (lien vers le site), logo au centre,
+  téléphone à droite. En rechargeant la page, **rien ne bouge** quand le
+  numéro apparaît. Sur téléphone : « ← Le site » et une icône de téléphone.
+- [ ] L'onglet affiche l'icône J&J (si `favicon-32.png` est déposé).
+
+**Confirmation** (composer et envoyer un menu avec votre email)
+- [ ] « Merci … ! » et « Jessica et Jérôme ont reçu votre menu et vous
+  appellent sous 48 h. »
+- [ ] Bloc « Prochaine étape : la dégustation » : « Réserver un appel » ouvre
+  votre lien dans un nouvel onglet — ou, sans lien, « Nous appeler » lance
+  l'appel sur téléphone.
+- [ ] « Copier le lien » → « Lien copié ✓ » ; le lien collé est
+  `https://composeur-jj.vercel.app/menu/…`.
+- [ ] « WhatsApp » ouvre WhatsApp avec le texte prérempli et le lien.
+- [ ] Sur téléphone : un bouton « Partager… » ouvre le partage du téléphone.
+- [ ] « Télécharger le PDF » : le PDF contient le menu, le logo, le pied de
+  page (téléphone, email, site, SIRET 815 186 382 00017) et **aucune** de vos
+  coordonnées (ni téléphone, ni lieu, ni allergies, ni message).
+- [ ] « Recommencer une composition » est un petit lien en bas de page.
+
+**Emails**
+- [ ] Email du couple : logo, couleurs, bouton **« Voir mon menu en ligne »**
+  qui ouvre `/menu/…`, pied de page avec les coordonnées et le SIRET.
+- [ ] Email de J&J : même habillage ; le PDF joint contient bien
+  « Vos informations » (téléphone, lieu, allergies, message).
+- [ ] Accents corrects dans le PDF (« définitif », « Déjà compris »…).
+
+**Référencement**
+- [ ] https://composeur-jj.vercel.app/robots.txt affiche les trois lignes
+  `Disallow`.
+- [ ] Partagez le lien du site dans une conversation WhatsApp avec vous-même :
+  l'aperçu montre le titre et l'image (si `og-image.jpg` est déposé).
+
+### Étape 6 — Nettoyage
+
+```sql
+delete from public.compositions where email = 'VOTRE_EMAIL';
+delete from public.submission_log;
+```
+
+---
+
+## Ajouter ou changer le logo (à tout moment)
+
+1. **Déposer** les fichiers dans `public/brand/` (noms et formats : lot 4,
+   étape 1).
+2. **Lancer le script** :
+   ```bash
+   npm run brand:sync
+   ```
+   Attendu : `Logo synchronisé (… ko)`. Puis `npm test` doit passer.
+3. **Commiter** (je le fais pour vous ; tant que la bascule de domaine n'est
+   pas faite, je place le commit de la redirection **après** celui du logo,
+   pour que `git push origin HEAD~1:master` reste la bonne commande).
+4. **Redéployer les fonctions**, dans cet ordre :
+   ```bash
+   npx supabase functions deploy submit-composition
+   ```
+   ```bash
+   npx supabase functions deploy menu-pdf
+   ```
+   ```bash
+   npx supabase functions deploy send-draft-reminders --no-verify-jwt
+   ```
+   Les deux premières mettent le logo dans le PDF. La troisième n'utilise pas
+   le PDF (ses emails chargent le logo depuis le site) : on la redéploie pour
+   que toutes les fonctions tournent sur le même code.
+5. **Déployer le front** (en-tête du site et logo des emails) :
+   `git push origin HEAD~1:master` avant la bascule, `git push origin master`
+   après.
+6. **Vérifier** : en-tête du site, email reçu, et « Télécharger le PDF » sur
+   la page de confirmation d'un nouvel envoi.
+
+---
+
+## Bascule vers composer.j-jtraiteur.fr
+
+À faire après le lot 4, quand vous êtes prêt. Les emails déjà envoyés
+contiennent des liens `https://composeur-jj.vercel.app/reprendre/…` et
+`/menu/…` : l'ancienne adresse **redirige définitivement** vers la nouvelle
+en gardant le chemin complet et les paramètres (`vercel.json`). En suivant
+l'ordre, le site n'est jamais coupé.
+
+### Étape 1 — Activer le domaine dans Vercel
+
+1. Vercel → **composeur-jj** → **Settings** → **Domains** → **Add** →
+   `composer.j-jtraiteur.fr`.
+2. Vercel affiche l'enregistrement DNS à créer (en général un **CNAME**
+   `composer` → `cname.vercel-dns.com`). Créez-le chez Hostinger
+   (**Domaines** → `j-jtraiteur.fr` → **DNS**). Ne touchez pas aux
+   enregistrements existants (site vitrine, emails Resend).
+3. Attendez que Vercel affiche **Valid Configuration** (de quelques minutes à
+   quelques heures ; le certificat HTTPS est créé automatiquement).
+4. Vérifiez : https://composer.j-jtraiteur.fr affiche le Composeur.
+   Les deux adresses fonctionnent désormais en parallèle.
+
+### Étape 2 — Autoriser les deux adresses
+
+Supabase → **Edge Functions** → **Secrets** :
+
+| Secret | Nouvelle valeur |
+|---|---|
+| `ALLOWED_ORIGINS` | `https://composeur-jj.vercel.app,https://composer.j-jtraiteur.fr` (les **deux**, séparées par une virgule, sans espace ni `/` final) |
+| `SITE_URL` | `https://composer.j-jtraiteur.fr` (liens et logo des emails) |
+
+Cloudflare → **Turnstile** → votre widget → **Hostnames** : **ajoutez**
+`composer.j-jtraiteur.fr` (gardez `composeur-jj.vercel.app`).
+
+Vercel → **Environment Variables** : `VITE_APP_URL` =
+`https://composer.j-jtraiteur.fr`.
+
+### Étape 3 — Déployer la redirection
+
+```bash
+git push origin master
+```
+
+Ce push envoie le commit de la redirection et reconstruit le site avec la
+nouvelle `VITE_APP_URL`. Attendez **Ready**.
+
+### Étape 4 — Vérifier
+
+```bash
+curl -sI "https://composeur-jj.vercel.app/menu/test?utm_source=essai"
+```
+
+Attendu : `308 Permanent Redirect` et
+`location: https://composer.j-jtraiteur.fr/menu/test?utm_source=essai`
+(chemin **et** paramètres conservés).
+
+- [ ] Un ancien lien `…vercel.app/menu/<share_token>` (email déjà reçu)
+  ouvre le menu sur `composer.j-jtraiteur.fr`.
+- [ ] Un ancien lien `…vercel.app/reprendre/<share_token>` reprend le menu.
+- [ ] Sur `composer.j-jtraiteur.fr` : composer, « Menu enregistré ✓ »,
+  envoi, emails reçus avec des liens en `composer.j-jtraiteur.fr`,
+  « Copier le lien » donne `https://composer.j-jtraiteur.fr/menu/…`,
+  « Télécharger le PDF » fonctionne.
+- [ ] `/admin` : connexion possible sur la nouvelle adresse.
+
+### Étape 5 — Mettre à jour le lien du site vitrine
+
+Sur j-jtraiteur.fr (Lovable), remplacez le lien vers le Composeur par
+`https://composer.j-jtraiteur.fr`.
+
+### Étape 6 — Retirer l'ancienne adresse (seulement après vérification)
+
+Quelques jours plus tard, une fois tout vérifié :
+
+- `ALLOWED_ORIGINS` = `https://composer.j-jtraiteur.fr`
+- Turnstile : retirez `composeur-jj.vercel.app` des Hostnames.
+
+**Ne retirez pas** `composeur-jj.vercel.app` des domaines Vercel, ni la
+redirection de `vercel.json` : ce sont elles qui font fonctionner les
+anciens liens des emails.
+
+Mettez enfin à jour la colonne « Valeur actuelle » du tableau des adresses
+dans le README (je peux le faire).

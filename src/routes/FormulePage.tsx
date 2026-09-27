@@ -36,8 +36,8 @@ export default function FormulePage() {
   return (
     <div className="mx-auto max-w-5xl px-5 py-12">
       <div className="text-center">
-        <p className="text-sm uppercase tracking-[0.2em] text-accent">Étape 1</p>
-        <h1 className="mt-2 text-3xl leading-tight text-ink sm:text-4xl">
+        <p className="text-sm uppercase tracking-[0.2em] text-slate">Étape 1</p>
+        <h1 className="mt-2 text-3xl leading-tight text-slate sm:text-4xl">
           Choisissez votre formule
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-muted">
@@ -58,17 +58,17 @@ export default function FormulePage() {
               whileHover={{ y: -5 }}
               transition={{ duration: 0.3, delay: i * 0.08 }}
               style={{ boxShadow: selected ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
-              className={`flex flex-col rounded-card border bg-surface p-6 transition-colors ${
-                selected ? 'border-accent' : 'border-line'
+              className={`flex flex-col rounded-card border bg-fond p-6 transition-colors ${
+                selected ? 'border-slate' : 'border-lin'
               }`}
             >
               {/* En-tête : nom (le prix est en bas, façon carte de restaurant) */}
               <div className="text-center">
-                <h2 className="font-display text-3xl text-ink">{f.name}</h2>
+                <h2 className="font-display text-3xl text-slate">{f.name}</h2>
                 {f.subtitle && <p className="mt-1 text-sm text-muted">{f.subtitle}</p>}
               </div>
 
-              <div className="my-5 h-px bg-line" />
+              <div className="my-5 h-px bg-bronze/60" />
 
               {/* Le menu, présenté par sections (façon carte de restaurant) */}
               <FormuleMenu lines={f.highlights} />
@@ -90,7 +90,7 @@ export default function FormulePage() {
               </div>
 
               {/* Inclus dans toutes les formules */}
-              <p className="mt-5 border-t border-line pt-4 text-center text-xs text-muted">
+              <p className="mt-5 border-t border-lin pt-4 text-center text-xs text-muted">
                 Eaux · service · nappage · verre, couvert &amp; assiette inclus
               </p>
 
@@ -107,10 +107,10 @@ export default function FormulePage() {
                 <button
                   type="button"
                   onClick={() => choose(f.id)}
-                  className={`w-full rounded-full px-6 py-3 text-sm font-semibold shadow-[0_10px_24px_-12px_rgba(140,106,63,0.65)] transition-colors ${
+                  className={`w-full rounded-card px-6 py-3 text-sm font-semibold transition-colors ${
                     selected
-                      ? 'bg-accent-dark text-cream'
-                      : 'bg-accent text-cream hover:bg-accent-dark'
+                      ? 'bg-slate-deep text-lin'
+                      : 'bg-slate text-lin hover:bg-slate-deep'
                   }`}
                 >
                   {selected ? 'Continuer' : 'Choisir cette formule'}
@@ -161,7 +161,7 @@ function FormuleMenu({ lines }: { lines: string[] }) {
     <div className="flex flex-1 flex-col">
       {sections.map((sec, si) => (
         <div key={si}>
-          {si > 0 && <div className="my-3 h-px w-full bg-line" />}
+          {si > 0 && <div className="my-3 h-px w-full bg-lin" />}
           {sec.map((line, li) => {
             if (line.startsWith('· ')) {
               return (
@@ -173,7 +173,7 @@ function FormuleMenu({ lines }: { lines: string[] }) {
             const prevIsCourse = li > 0 && !sec[li - 1].startsWith('· ')
             return (
               <div key={li}>
-                {prevIsCourse && <div className="mx-auto my-2 h-px w-6 bg-line" />}
+                {prevIsCourse && <div className="mx-auto my-2 h-px w-6 bg-lin" />}
                 <p className="text-center text-sm text-ink">{line}</p>
               </div>
             )
@@ -186,7 +186,7 @@ function FormuleMenu({ lines }: { lines: string[] }) {
 
 function Centered({ text }: { text: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center px-6 text-center text-muted">
+    <div className="flex w-full flex-1 items-center justify-center px-6 text-center text-muted">
       {text}
     </div>
   )

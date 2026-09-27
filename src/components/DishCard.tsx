@@ -23,11 +23,11 @@ export default function DishCard({ item, selected, onToggle, onInfo }: DishCardP
         whileHover={{ y: -3 }}
         animate={{
           boxShadow: selected
-            ? '0 0 0 2px var(--color-accent), var(--shadow-card-hover)'
+            ? '0 0 0 2px oklch(var(--color-slate)), var(--shadow-card-hover)'
             : 'var(--shadow-card)',
         }}
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-card bg-surface text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+        className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-card bg-fond text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate focus-visible:ring-offset-2 focus-visible:ring-offset-lin-light"
       >
         {/* Visuel */}
         <div className="relative aspect-[4/3] w-full overflow-hidden">
@@ -46,7 +46,7 @@ export default function DishCard({ item, selected, onToggle, onInfo }: DishCardP
           )}
 
           {item.supplement > 0 && (
-            <span className="absolute left-2 top-2 rounded-full bg-ink/80 px-2 py-0.5 text-[11px] text-cream">
+            <span className="absolute left-2 top-2 rounded-card bg-ink/80 px-2 py-0.5 text-[11px] text-lin">
               + {formatPrice(item.supplement)} / pers
             </span>
           )}
@@ -56,7 +56,7 @@ export default function DishCard({ item, selected, onToggle, onInfo }: DishCardP
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               aria-hidden="true"
-              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-cream"
+              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-bronze text-ink shadow-[var(--shadow-sm)]"
             >
               ✓
             </motion.span>
@@ -71,7 +71,7 @@ export default function DishCard({ item, selected, onToggle, onInfo }: DishCardP
           {item.labels.length > 0 && (
             <div className="mt-auto flex flex-wrap gap-1 pt-1">
               {item.labels.map((code) => (
-                <span key={code} className="rounded-full bg-cream px-2 py-0.5 text-[11px] text-accent">
+                <span key={code} className="rounded-card bg-lin-light px-2 py-0.5 text-[11px] text-slate">
                   {dietaryLabel(code)}
                 </span>
               ))}
@@ -85,7 +85,7 @@ export default function DishCard({ item, selected, onToggle, onInfo }: DishCardP
         type="button"
         onClick={onInfo}
         aria-label={`Voir le détail : ${item.name}`}
-        className="absolute bottom-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface font-display text-sm italic text-muted hover:border-accent hover:text-accent"
+        className="absolute bottom-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full border border-lin bg-fond font-display text-sm italic text-muted hover:border-slate hover:text-slate"
       >
         i
       </button>

@@ -61,7 +61,7 @@ export default function StatsPanel({
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-card border border-line bg-surface p-4">
+    <div className="rounded-card border border-lin bg-fond p-4">
       <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-1 font-display text-2xl text-ink">{value}</p>
       <p className="text-xs text-muted">{sub}</p>
@@ -72,7 +72,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <h2 className="mb-3 font-display text-lg text-ink">{title}</h2>
+      <h2 className="mb-3 font-display text-lg text-slate">{title}</h2>
       {children}
     </div>
   )
@@ -89,9 +89,9 @@ function BarList({ data, total, suffix }: { data: NamedCount[]; total: number; s
             <span className="w-1/2 truncate text-sm text-ink" title={d.name}>
               {d.name}
             </span>
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-cream">
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-lin-light">
               <div
-                className="h-full rounded-full bg-accent"
+                className="h-full rounded-full bg-slate"
                 style={{ width: `${Math.max(ratio * 100, 4)}%` }}
               />
             </div>

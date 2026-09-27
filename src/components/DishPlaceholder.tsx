@@ -7,7 +7,7 @@ export default function DishPlaceholder() {
       className="flex h-full w-full items-center justify-center"
       style={{
         background:
-          'linear-gradient(135deg, var(--color-cream) 0%, var(--color-line) 100%)',
+          'linear-gradient(135deg, oklch(var(--color-lin-light)) 0%, oklch(var(--color-lin)) 100%)',
       }}
       aria-hidden
     >
@@ -16,11 +16,11 @@ export default function DishPlaceholder() {
         height="44"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="var(--color-accent)"
+        stroke="oklch(var(--color-bronze))"
         strokeWidth="1.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity="0.55"
+        opacity="0.8"
       >
         {/* petite branche d'olivier stylisée */}
         <path d="M12 21c0-6 0-12 4-16" />

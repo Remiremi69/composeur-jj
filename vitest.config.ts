@@ -5,8 +5,13 @@ import viteConfig from './vite.config'
 // Les tests du noyau tournent sous Node ; ceux de l'interface (.tsx) sous
 // jsdom (déclaré en tête de fichier).
 export default mergeConfig(
-  viteConfig,
+  viteConfig({ mode: 'test', command: 'serve' }),
   defineConfig({
+    resolve: {
+      // Les Edge Functions importent pdf-lib depuis esm.sh (Deno) : sous
+      // Node, on utilise le même paquet installé en dépendance de dev.
+      alias: [{ find: 'https://esm.sh/pdf-lib@1.17.1', replacement: 'pdf-lib' }],
+    },
     test: {
       include: ['tests/**/*.test.{ts,tsx}'],
       environment: 'node',

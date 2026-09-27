@@ -167,7 +167,7 @@ export default function ComposerPage() {
   const detailStep = detailItem ? stepOfItem(detailItem) : null
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex w-full flex-1 flex-col">
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-6 pt-6">
         <StepTrail
           screens={screens}
@@ -177,10 +177,10 @@ export default function ComposerPage() {
           onSelect={goTo}
         />
 
-        <p className="mt-5 text-xs uppercase tracking-[0.2em] text-accent">
+        <p className="mt-5 text-xs uppercase tracking-[0.2em] text-slate">
           Étape {index + 1} / {screens.length}
         </p>
-        <h1 ref={titleRef} tabIndex={-1} className="mt-2 text-3xl leading-tight text-ink">
+        <h1 ref={titleRef} tabIndex={-1} className="mt-2 text-3xl leading-tight text-slate">
           {screen.title}
         </h1>
         {screen.subtitle && <p className="mt-1 text-muted">{screen.subtitle}</p>}
@@ -267,11 +267,11 @@ function StepSection({
   onToggleOption: (id: string) => void
 }) {
   return (
-    <section className={grouped ? 'mt-8 border-t border-line pt-6 first:border-0 first:pt-0' : ''}>
+    <section className={grouped ? 'mt-8 border-t border-lin pt-6 first:border-0 first:pt-0' : ''}>
       {grouped && (
         <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl text-ink">{step.title}</h2>
+            <h2 className="text-2xl text-slate">{step.title}</h2>
             {step.subtitle && <p className="text-sm text-muted">{step.subtitle}</p>}
           </div>
           <div className="sm:w-48">
@@ -322,7 +322,7 @@ function StepSection({
 
 function CenteredMessage({ text }: { text: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center px-6 text-center text-muted">
+    <div className="flex w-full flex-1 items-center justify-center px-6 text-center text-muted">
       {text}
     </div>
   )

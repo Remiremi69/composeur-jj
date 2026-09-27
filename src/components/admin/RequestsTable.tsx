@@ -21,10 +21,10 @@ export default function RequestsTable({ compositions, formules, onSelect }: Requ
   }
 
   return (
-    <div className="overflow-x-auto rounded-card border border-line">
+    <div className="overflow-x-auto rounded-card border border-lin">
       <table className="w-full min-w-[720px] text-left text-sm">
         <thead>
-          <tr className="border-b border-line bg-cream text-xs uppercase tracking-wide text-muted">
+          <tr className="border-b border-lin bg-lin-light text-xs uppercase tracking-wide text-muted">
             <th className="px-4 py-3 font-medium">Couple</th>
             <th className="px-4 py-3 font-medium">Date mariage</th>
             <th className="px-4 py-3 font-medium">Convives</th>
@@ -39,7 +39,7 @@ export default function RequestsTable({ compositions, formules, onSelect }: Requ
             <tr
               key={c.id}
               onClick={() => onSelect(c)}
-              className="cursor-pointer border-b border-line last:border-0 hover:bg-cream/60"
+              className="cursor-pointer border-b border-lin last:border-0 hover:bg-lin-light/60"
             >
               <td className="px-4 py-3 font-medium text-ink">{c.couple_names}</td>
               <td className="px-4 py-3 text-muted">
@@ -52,9 +52,9 @@ export default function RequestsTable({ compositions, formules, onSelect }: Requ
               </td>
               <td className="px-4 py-3">
                 {c.handled ? (
-                  <span className="rounded-full bg-cream px-2 py-0.5 text-xs text-muted">Traité</span>
+                  <span className="rounded-card bg-lin-light px-2 py-0.5 text-xs text-muted">Traité</span>
                 ) : (
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-cream">Nouveau</span>
+                  <span className="rounded-card bg-slate px-2 py-0.5 text-xs text-lin">Nouveau</span>
                 )}
               </td>
               <td className="px-4 py-3 text-muted">{shortDate(c.created_at)}</td>

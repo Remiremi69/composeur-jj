@@ -27,7 +27,7 @@ export default function IncludedInFormule({
           <ul className="mt-1 flex flex-col gap-0.5">
             {g.items.map((it) => (
               <li key={it.name} className="text-sm text-ink">
-                <span className="text-accent" aria-hidden="true">✓ </span>
+                <span className="text-slate" aria-hidden="true">✓ </span>
                 {it.name}
               </li>
             ))}
@@ -38,7 +38,7 @@ export default function IncludedInFormule({
   )
 
   return (
-    <div className="rounded-card border border-line bg-cream/60 p-4">
+    <div className="rounded-card border border-lin bg-lin-light/60 p-4">
       {collapsible ? (
         <button
           type="button"
@@ -48,10 +48,10 @@ export default function IncludedInFormule({
           className="flex w-full items-center justify-between text-sm font-medium text-ink"
         >
           Déjà compris dans votre formule
-          <span aria-hidden="true" className="text-accent">{open ? '▴' : '▾'}</span>
+          <span aria-hidden="true" className="text-slate">{open ? '▴' : '▾'}</span>
         </button>
       ) : (
-        <h2 className="text-sm font-medium text-ink">Déjà compris dans votre formule</h2>
+        <h2 className="text-sm font-medium text-slate">Déjà compris dans votre formule</h2>
       )}
       {open && content}
     </div>

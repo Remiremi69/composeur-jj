@@ -10,13 +10,13 @@ export default function RuleCounter({ status }: { status: RuleStatus }) {
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-ink">{status.label}</span>
-        {status.satisfied && <span className="text-sm text-accent">✓</span>}
+        {status.satisfied && <span className="text-sm text-slate">✓</span>}
       </div>
 
       {showGauge && (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-lin">
           <motion.div
-            className="h-full rounded-full bg-accent"
+            className="h-full rounded-full bg-slate"
             initial={false}
             animate={{ width: `${ratio * 100}%` }}
             transition={{ type: 'spring', stiffness: 260, damping: 30 }}

@@ -46,14 +46,14 @@ export default function StepTrail({
                 disabled={!reachable || current}
                 aria-current={current ? 'step' : undefined}
                 aria-label={`${i + 1}. ${screen.navTitle} — ${stateLabel}`}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-card border px-3 py-1.5 text-xs font-medium transition-colors ${
                   current
-                    ? 'border-accent bg-accent text-cream'
+                    ? 'border-slate bg-slate text-lin'
                     : done
-                      ? 'border-line bg-surface text-ink hover:border-accent'
+                      ? 'border-lin bg-fond text-ink hover:border-slate'
                       : reachable
-                        ? 'border-line bg-surface text-muted hover:border-accent'
-                        : 'cursor-not-allowed border-line bg-transparent text-muted'
+                        ? 'border-lin bg-fond text-muted hover:border-slate'
+                        : 'cursor-not-allowed border-lin bg-transparent text-muted'
                 }`}
               >
                 <span aria-hidden="true">{done ? '✓' : i + 1}</span>

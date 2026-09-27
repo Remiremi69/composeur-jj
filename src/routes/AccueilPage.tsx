@@ -13,6 +13,7 @@ import {
 import FormField from '../components/FormField'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
+import { telHref } from '../lib/format'
 
 // Clé publique Cloudflare Turnstile : protège la création du brouillon
 // (qui peut donner lieu à un email de rappel). Widget absent si non définie.
@@ -76,14 +77,13 @@ export default function AccueilPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
+    <div className="mx-auto flex w-full flex-1 max-w-md flex-col justify-center px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <p className="text-sm uppercase tracking-[0.2em] text-accent">J&amp;J Traiteur</p>
-        <h1 className="mt-3 text-4xl leading-tight text-ink">
+        <h1 className="mt-3 text-4xl leading-tight text-slate">
           Composez le menu de votre mariage
         </h1>
         <p className="mt-3 text-muted">
@@ -119,8 +119,8 @@ export default function AccueilPage() {
                     <>
                       {' au '}
                       <a
-                        href={`tel:${traiteurPhone.replace(/[^+\d]/g, '')}`}
-                        className="whitespace-nowrap font-medium text-accent underline underline-offset-2"
+                        href={`tel:${telHref(traiteurPhone)}`}
+                        className="whitespace-nowrap font-medium text-slate underline underline-offset-2"
                       >
                         {traiteurPhone}
                       </a>
@@ -197,13 +197,13 @@ export default function AccueilPage() {
 
           <button
             type="submit"
-            className="mt-2 rounded-full bg-accent px-6 py-3.5 font-semibold text-cream shadow-[0_10px_24px_-10px_rgba(140,106,63,0.65)] transition-colors hover:bg-accent-dark"
+            className="mt-2 rounded-card bg-slate px-6 py-3.5 font-semibold text-lin transition-colors hover:bg-slate-deep"
           >
             Composer notre menu
           </button>
         </form>
 
-        <div className="mt-10 border-t border-line pt-8">
+        <div className="mt-10 border-t border-lin pt-8">
           <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Comment ça marche</h2>
           <ol className="mt-4 flex flex-col gap-4">
             {[
@@ -213,7 +213,7 @@ export default function AccueilPage() {
               ['Contrat', 'On finalise votre devis, puis votre contrat.'],
             ].map(([title, desc], i) => (
               <li key={title} className="flex gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-medium text-cream">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate text-sm font-medium text-lin">
                   {i + 1}
                 </span>
                 <div>

@@ -29,6 +29,11 @@ export function formatPhone(phone: string): string {
   return m ? `+33 ${m[1]} ${m[2]} ${m[3]} ${m[4]} ${m[5]}` : phone
 }
 
+// « +33 6 71 17 06 73 » → « +33671170673 » pour un lien tel:.
+export function telHref(phone: string): string {
+  return phone.replace(/[^\d+]/g, '')
+}
+
 // Libellé du prix d'une option : prix vide = « Sur demande », 0 € = « Offert ».
 export function optionPriceLabel(option: Pick<Option, 'price' | 'price_unit'>): string {
   if (option.price === null || option.price === undefined) return 'Sur demande'

@@ -48,13 +48,13 @@ export default function CategoryAccordion({ items, selections, onToggle, onInfo 
         const panelId = `${baseId}-${gi}`
         const selectedCount = catItems.filter((i) => (selections[i.id] ?? 0) > 0).length
         return (
-          <div key={category} className="overflow-hidden rounded-card border border-line">
+          <div key={category} className="overflow-hidden rounded-card border border-lin">
             <button
               type="button"
               onClick={() => toggleOpen(category)}
               aria-expanded={isOpen}
               aria-controls={panelId}
-              className="flex w-full items-center justify-between gap-3 bg-surface px-4 py-3.5 text-left"
+              className="flex w-full items-center justify-between gap-3 bg-fond px-4 py-3.5 text-left"
             >
               <span className="flex items-baseline gap-2">
                 <span className="font-display text-lg text-ink">{category}</span>
@@ -62,7 +62,7 @@ export default function CategoryAccordion({ items, selections, onToggle, onInfo 
               </span>
               <span className="flex items-center gap-3">
                 {selectedCount > 0 && (
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-cream">
+                  <span className="rounded-card bg-slate px-2 py-0.5 text-xs font-medium text-lin">
                     {selectedCount}
                     <span className="sr-only"> choisi{selectedCount > 1 ? 's' : ''}</span>
                   </span>

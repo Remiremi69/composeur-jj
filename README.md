@@ -35,12 +35,18 @@ supabase/
     _shared/guard.ts              Protections communes : CORS, taille, piège, limite de débit, Turnstile
     _shared/recap.ts, html.ts,    Récapitulatif, échappement HTML, envoi Resend
       resend.ts
+    _shared/brand.ts              Identité J&J côté serveur : couleurs (hex de la charte), SIRET, coordonnées
+    _shared/brand-logo.ts         Logo encodé pour le PDF — GÉNÉRÉ par `npm run brand:sync`
+    _shared/pdf.ts                PDF du menu (joint aux emails : complet ; menu-pdf : sans coordonnées)
+    _shared/email-layout.ts       Gabarit commun des emails (logo, bouton, pied de page)
+    _shared/menu.ts               Menu envoyé en lecture seule (sans coordonnées)
     submit-composition/           Envoi du menu : validation, prix serveur, enregistrement atomique, emails, PDF
     save-draft/                   Création et sauvegarde automatique des brouillons
     get-draft/                    Reprise d'un brouillon / menu envoyé en lecture seule
     send-draft-reminders/         Relance des menus abandonnés (appelée par pg_cron)
     draft-opt-out/                Désinscription des relances
     public-config/                Réglages publics lus par le front (téléphone de J&J)
+    menu-pdf/                     PDF d'un menu envoyé, SANS coordonnées (page de confirmation)
   migrations/                     Schéma de la base (source de vérité), migrations horodatées
   cron/                           Tâche horaire de relance, à activer à la main (contient le secret)
   seed.sql                        Catalogue de référence (sans aucune composition) pour le local
@@ -113,6 +119,28 @@ Le front l'importe via l'alias `@core/*` (voir `tsconfig.app.json` et
 - Accessibilité : contrastes ≥ 4,5:1 vérifiés par `tests/contrast.test.ts`,
   focus visible, animations réduites si le système le demande.
 
+### Identité et après-envoi (lot 4)
+
+- **Charte J&J** dans `src/index.css` : couleurs en composantes oklch
+  (`--color-slate: 0.438 0.034 247`), utilisées par Tailwind sous la forme
+  `oklch(var(--x) / <alpha-value>)` (les opacités `bg-fond/95` fonctionnent).
+  Le bronze est décoratif uniquement (contraste 2,8:1 sur fond clair) ;
+  `tests/contrast.test.ts` le vérifie, ainsi que la concordance des couleurs
+  des emails et du PDF avec la charte.
+- Polices Playfair Display (titres) et Lato (texte) **auto-hébergées**
+  (`@fontsource`), aucun appel à Google Fonts. Rayons de 4 px.
+- **En-tête de marque** sur toutes les pages publiques (`BrandHeader`), avec la
+  place du téléphone réservée pour qu'aucun élément ne bouge à son arrivée.
+- **Confirmation** : prochaine étape (dégustation, prise de rendez-vous),
+  partage du menu (copie, WhatsApp, partage natif), PDF via `menu-pdf`.
+  Textes modifiables dans `src/config/brand.ts`.
+- **Fichiers de marque** attendus dans `public/brand/` : `jj-logo-slate.png`,
+  `favicon-32.png` (32 × 32), `apple-touch-icon.png` (180 × 180),
+  `og-image.jpg` (1200 × 630). Après tout changement du logo :
+  `npm run brand:sync` (recopie le logo dans le code des fonctions, pour le
+  PDF), puis redéployer les fonctions. Un test échoue si le logo de
+  `public/brand/` et celui des fonctions ne concordent pas.
+
 ---
 
 ## Lancer en local
@@ -176,7 +204,9 @@ checklist de tests).
 | `VITE_SUPABASE_ANON_KEY` | Clé anon (publique, protégée par RLS) |
 | `VITE_TURNSTILE_SITE_KEY` | Clé publique Cloudflare Turnstile (facultative, fortement recommandée) |
 | `VITE_PRIVACY_URL` | Politique de confidentialité, liée sous le bouton d'envoi |
-| `VITE_TRAITEUR_SITE_URL` | Site vitrine de J&J (logo, page menu) |
+| `VITE_TRAITEUR_SITE_URL` | Site vitrine de J&J (en-tête : lien « ← j-jtraiteur.fr » et logo) |
+| `VITE_APP_URL` | Adresse publique du Composeur (balises de partage, liens partagés) |
+| `VITE_BOOKING_URL` | Prise de rendez-vous en ligne (« Réserver un appel ») ; vide = « Nous appeler » |
 
 ### Edge Functions (secrets Supabase — jamais dans le front)
 
@@ -187,11 +217,34 @@ checklist de tests).
 | `TURNSTILE_SECRET_KEY` | Clé secrète Turnstile (facultative : vérification ignorée si absente) |
 | `RESEND_API_KEY` | Clé API Resend |
 | `FROM_EMAIL` | Expéditeur, ex. `Le Composeur — J&J <menu@j-jtraiteur.fr>` |
-| `REPLY_TO_EMAIL` | Adresse de réponse pour l'email envoyé au couple |
+| `REPLY_TO_EMAIL` | Adresse de réponse pour l'email envoyé au couple ; affichée dans le pied des emails et du PDF |
 | `TRAITEUR_EMAIL` | Destinataire(s) traiteur, séparés par des virgules |
-| `SITE_URL` | Adresse du Composeur, pour les liens des emails de relance |
-| `TRAITEUR_PHONE` | Téléphone de J&J affiché dans les relances (ex. `+33 6 71 17 06 73`) |
+| `SITE_URL` | Adresse du Composeur : liens des emails (reprise, menu en ligne), logo des emails |
+| `TRAITEUR_PHONE` | Téléphone de J&J — **source unique** : en-tête du site, confirmation, alerte « date proche » (via `public-config`), emails, PDF |
 | `CRON_SECRET` | Secret partagé avec la tâche pg_cron qui déclenche les relances |
 
 `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont fournis automatiquement par
 Supabase à la fonction.
+
+### Toutes les adresses, en un coup d'œil
+
+À relire à chaque changement de domaine (voir « Bascule vers
+composer.j-jtraiteur.fr » dans `docs/DEPLOY.md`).
+
+| Réglage | Ce qu'il désigne | Valeur actuelle | Où il se règle |
+|---|---|---|---|
+| `VITE_APP_URL` | Le Composeur (image et lien de partage, liens copiés / WhatsApp) | `https://composeur-jj.vercel.app` | Vercel (variable d'environnement) |
+| `SITE_URL` | Le Composeur (liens et logo des emails) | `https://composeur-jj.vercel.app` | Secret Supabase (Edge Functions) |
+| `ALLOWED_ORIGINS` | Adresses autorisées à appeler les fonctions (CORS) | `https://composeur-jj.vercel.app` | Secret Supabase (Edge Functions) |
+| Hostnames Turnstile | Domaines où le widget anti-robot fonctionne | `composeur-jj.vercel.app` | Tableau de bord Cloudflare (widget Turnstile) |
+| `VITE_TRAITEUR_SITE_URL` | Le site vitrine de J&J | `https://j-jtraiteur.fr` | Vercel (variable d'environnement) |
+| `VITE_PRIVACY_URL` | Politique de confidentialité (site vitrine) | `https://j-jtraiteur.fr/confidentialite` | Vercel (variable d'environnement) |
+| `VITE_BOOKING_URL` | Prise de rendez-vous en ligne | *(vide)* | Vercel (variable d'environnement) |
+| `VITE_SUPABASE_URL` | Le projet Supabase | `https://qlxswvjvorycpxbncppr.supabase.co` | Vercel (variable d'environnement) |
+| `BRAND.siteUrl` | Le site vitrine, dans le pied des emails et du PDF | `https://j-jtraiteur.fr` | Code : `supabase/functions/_shared/brand.ts` |
+| Redirection d'hôte | `composeur-jj.vercel.app` → `composer.j-jtraiteur.fr` (chemin et paramètres conservés) | active après la bascule | Code : `vercel.json` |
+| Domaines Vercel | Adresses qui servent le site | `composeur-jj.vercel.app` | Vercel → Settings → Domains |
+
+Une variable `VITE_…` modifiée sur Vercel n'est prise en compte qu'au
+**déploiement suivant** ; un secret Supabase est pris en compte
+immédiatement par les fonctions.

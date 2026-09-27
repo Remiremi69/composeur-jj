@@ -172,23 +172,23 @@ export default function RecapPage() {
       >
         {/* En-tête de menu */}
         <header className="text-center">
-          <p className="text-sm uppercase tracking-[0.2em] text-accent">Votre menu</p>
-          <h1 className="mt-2 text-4xl text-ink">{couple.coupleNames}</h1>
+          <p className="text-sm uppercase tracking-[0.2em] text-slate">Votre menu</p>
+          <h1 className="mt-2 text-4xl text-slate">{couple.coupleNames}</h1>
           <p className="mt-2 text-muted">
             {couple.weddingDate && `${formatDate(couple.weddingDate)} · `}
             {couple.guestCount} convives
           </p>
           {formule && (
-            <p className="mt-3 inline-block rounded-full bg-cream px-4 py-1 text-sm text-accent">
+            <p className="mt-3 inline-block rounded-card bg-lin-light px-4 py-1 text-sm text-slate">
               {formule.name}
             </p>
           )}
         </header>
 
-        <div className="my-8 flex items-center justify-center gap-3 text-accent">
-          <span className="h-px w-12 bg-line" />
+        <div className="my-8 flex items-center justify-center gap-3 text-bronze" aria-hidden="true">
+          <span className="h-px w-12 bg-bronze/60" />
           <span>✦</span>
-          <span className="h-px w-12 bg-line" />
+          <span className="h-px w-12 bg-bronze/60" />
         </div>
 
         {/* Le menu, étape par étape (avec « Modifier »), puis les options */}
@@ -214,8 +214,8 @@ export default function RecapPage() {
         )}
 
         {/* Pour vous recontacter */}
-        <section className="mt-10 rounded-card border border-line bg-surface p-6">
-          <h2 className="font-display text-2xl text-ink">Pour vous recontacter</h2>
+        <section className="mt-10 rounded-card border border-lin bg-fond p-6">
+          <h2 className="font-display text-2xl text-slate">Pour vous recontacter</h2>
           <p className="mt-1 text-sm text-muted">
             Votre traiteur vous rappellera pour affiner votre menu avec vous.
           </p>
@@ -309,7 +309,7 @@ export default function RecapPage() {
           {submitErrors.length > 0 && (
             <div
               role="alert"
-              className="rounded-card border border-error/40 bg-surface p-4 text-left text-sm text-ink"
+              className="rounded-card border border-error/40 bg-fond p-4 text-left text-sm text-ink"
             >
               <p className="font-medium text-error">Votre menu n'a pas pu être envoyé :</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -335,7 +335,7 @@ export default function RecapPage() {
             type="button"
             onClick={handleSubmit}
             disabled={submitting || (needsTurnstile && !turnstileToken)}
-            className="rounded-full bg-accent px-6 py-3.5 font-semibold text-cream transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-card bg-slate px-6 py-3.5 font-semibold text-lin transition-colors hover:bg-slate-deep disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Envoi en cours…' : 'Envoyer à notre traiteur'}
           </button>
@@ -360,7 +360,7 @@ export default function RecapPage() {
             type="button"
             onClick={() => navigate('/composer')}
             disabled={submitting}
-            className="rounded-full px-6 py-3 font-medium text-muted hover:text-ink disabled:opacity-60"
+            className="rounded-card px-6 py-3 font-medium text-muted hover:text-ink disabled:opacity-60"
           >
             Modifier notre menu
           </button>

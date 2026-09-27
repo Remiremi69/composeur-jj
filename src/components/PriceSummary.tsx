@@ -17,7 +17,7 @@ export default function PriceSummary({
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="rounded-card border border-line bg-surface p-6 text-center">
+    <div className="rounded-card border border-lin bg-fond p-6 text-center">
       <p className="text-sm text-muted">Estimation</p>
       <p className="mt-1 font-display text-3xl text-ink">
         {formatPrice(estimate.perPersonAllIn)}
@@ -29,7 +29,7 @@ export default function PriceSummary({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="mt-3 text-sm font-medium text-accent hover:text-accent-dark"
+        className="mt-3 text-sm font-medium text-slate hover:text-slate-deep"
       >
         {open ? 'Masquer le détail ▴' : 'Voir le détail ▾'}
       </button>
@@ -46,7 +46,7 @@ export default function PriceSummary({
           {estimate.optionsPerPerson > 0 && (
             <Line label="Options par personne" value={`+ ${formatPrice(estimate.optionsPerPerson)} / pers`} />
           )}
-          <div className="my-1 h-px bg-line" />
+          <div className="my-1 h-px bg-lin" />
           <Line
             label={`Total pour ${guestCount} convives`}
             value={formatPrice(estimate.total)}

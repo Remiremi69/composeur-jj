@@ -20,11 +20,6 @@ Points identifiés, à traiter dans un lot ultérieur.
 
 ## Interface
 
-- **Lot 4 (nouvelle palette J&J) : refaire la mesure des contrastes.** Le
-  lot 3 a foncé `--color-muted` (#756a5f) et ajouté `--color-error` pour
-  atteindre 4,5:1. Toute nouvelle couleur doit repasser
-  `tests/contrast.test.ts` (ajouter les nouvelles paires de couleurs au test).
-  *(Noté au lot 3.)*
 - **OptionsPage : titres des catégories d'options à passer en données.**
   *Déjà fait au lot 3* : la liste figée `STEP_EMBEDDED_CATEGORIES` (quelles
   catégories d'options s'affichent dans une étape plutôt qu'en page finale)

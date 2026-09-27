@@ -39,16 +39,16 @@ export default function Plateau({
   const doneCount = statuses.filter((s) => s.status.satisfied).length
 
   return (
-    <div className="sticky bottom-0 z-10 border-t border-line bg-surface/95 backdrop-blur">
+    <div className="sticky bottom-0 z-10 border-t border-lin bg-fond/95 backdrop-blur">
       <div className="mx-auto max-w-3xl px-4 py-3">
         {/* État de l'écran + prix par personne en direct + sauvegarde */}
         <div className="flex items-end gap-4">
           <div className="flex-1" aria-live="polite">
             {valid ? (
-              <p className="flex items-center gap-2 text-base font-semibold text-accent">
+              <p className="flex items-center gap-2 text-base font-semibold text-slate">
                 <span
                   aria-hidden="true"
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-sm text-cream"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-bronze text-sm text-ink"
                 >
                   ✓
                 </span>
@@ -61,9 +61,9 @@ export default function Plateau({
                 <span className="text-sm font-medium text-ink">
                   {doneCount} / {statuses.length} choix faits
                 </span>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-lin">
                   <motion.div
-                    className="h-full rounded-full bg-accent"
+                    className="h-full rounded-full bg-slate"
                     initial={false}
                     animate={{ width: `${(doneCount / statuses.length) * 100}%` }}
                   />
@@ -92,7 +92,7 @@ export default function Plateau({
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.6, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                    className="flex shrink-0 items-center gap-2 rounded-full border border-line bg-cream py-1 pl-3 pr-1"
+                    className="flex shrink-0 items-center gap-2 rounded-card border border-lin bg-lin-light py-1 pl-3 pr-1"
                   >
                     <span className="max-w-[9rem] truncate text-sm text-ink">{it.name}</span>
                     {stepper ? (
@@ -100,7 +100,7 @@ export default function Plateau({
                         <button
                           type="button"
                           onClick={() => onSetQuantity(it.id, qty - 1)}
-                          className="flex h-6 w-6 items-center justify-center rounded-full bg-surface text-ink"
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-fond text-ink"
                           aria-label={`Retirer une part de ${it.name}`}
                         >
                           −
@@ -109,7 +109,7 @@ export default function Plateau({
                         <button
                           type="button"
                           onClick={() => onSetQuantity(it.id, qty + 1)}
-                          className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-cream"
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-slate text-lin"
                           aria-label={`Ajouter une part de ${it.name}`}
                         >
                           +
@@ -119,7 +119,7 @@ export default function Plateau({
                       <button
                         type="button"
                         onClick={() => onRemove(it.id)}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-surface text-muted"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-fond text-muted"
                         aria-label={`Retirer ${it.name}`}
                       >
                         ×
@@ -137,7 +137,7 @@ export default function Plateau({
           <button
             type="button"
             onClick={onBack}
-            className="rounded-full px-4 py-2 text-sm font-medium text-muted hover:text-ink"
+            className="rounded-card px-4 py-2 text-sm font-medium text-muted hover:text-ink"
           >
             Retour
           </button>
@@ -146,7 +146,7 @@ export default function Plateau({
               type="button"
               onClick={onBackToRecap}
               disabled={!valid}
-              className="rounded-full border border-accent px-4 py-3 text-sm font-semibold text-accent transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-card border border-slate px-4 py-3 text-sm font-semibold text-slate transition-colors hover:bg-lin-light disabled:cursor-not-allowed disabled:opacity-40"
             >
               Revenir au récapitulatif
             </button>
@@ -155,7 +155,7 @@ export default function Plateau({
             type="button"
             onClick={onNext}
             disabled={!valid}
-            className="flex-1 rounded-full bg-accent px-4 py-3 text-center text-sm font-semibold text-cream transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex-1 rounded-card bg-slate px-4 py-3 text-center text-sm font-semibold text-lin transition-colors hover:bg-slate-deep disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isLastScreen ? 'Continuer' : 'Étape suivante'}
           </button>

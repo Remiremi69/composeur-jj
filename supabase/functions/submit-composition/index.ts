@@ -31,8 +31,9 @@ import {
 } from '../_shared/guard.ts'
 import { buildRecap, type RecapData } from '../_shared/recap.ts'
 import { sendEmail } from '../_shared/resend.ts'
+import { brandContact } from '../_shared/brand.ts'
+import { buildPdf } from '../_shared/pdf.ts'
 import { coupleEmail, traiteurEmail } from './emails.ts'
-import { buildPdf } from './pdf.ts'
 
 // Ne garde que les champs attendus de la composition (le reste est ignoré).
 function pickPayload(body: Record<string, unknown>): Record<string, unknown> {
@@ -175,7 +176,7 @@ Deno.serve(async (req) => {
         },
         estimate,
       )
-      emailSent = await sendCompositionEmails(admin, compositionId, recap, source)
+      emailSent = await sendCompositionEmails(admin, compositionId, recap, source, token)
     } catch (e) {
       console.error(`[submit] envoi des emails (${compositionId}) :`, e)
     }
@@ -211,6 +212,7 @@ async function sendCompositionEmails(
   compositionId: string,
   recap: RecapData,
   source: string | null,
+  shareToken: string,
 ): Promise<boolean> {
   const { data: comp, error } = await admin
     .from('compositions')
@@ -230,9 +232,14 @@ async function sendCompositionEmails(
     return false
   }
 
+  // Coordonnées de J&J (pied des emails et du PDF) et lien du menu en ligne.
+  const brand = brandContact(env)
+  const menuUrl = brand.appUrl ? `${brand.appUrl}/menu/${shareToken}` : null
+
   let pdfBase64: string | null = null
   try {
-    pdfBase64 = encodeBase64(await buildPdf(recap))
+    // PDF joint aux emails : complet, avec « Vos informations ».
+    pdfBase64 = encodeBase64(await buildPdf(recap, { includeContact: true, brand }))
   } catch (e) {
     console.error('[emails] génération du PDF impossible, envoi sans pièce jointe :', e)
   }
@@ -243,7 +250,7 @@ async function sendCompositionEmails(
     .filter(Boolean)
   let traiteurOk = false
   if (traiteurTo.length) {
-    const t = traiteurEmail(recap, source)
+    const t = traiteurEmail(recap, source, { brand })
     traiteurOk = await sendEmail({
       apiKey,
       from,
@@ -257,7 +264,7 @@ async function sendCompositionEmails(
     console.error('[emails] TRAITEUR_EMAIL absent : notification traiteur non envoyée')
   }
 
-  const c = coupleEmail(recap)
+  const c = coupleEmail(recap, { brand, menuUrl })
   const coupleOk = await sendEmail({
     apiKey,
     from,

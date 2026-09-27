@@ -12,13 +12,13 @@ export default function Toast({ message, onClose }: { message: string | null; on
       className="pointer-events-none fixed inset-x-0 bottom-40 z-40 flex justify-center px-4"
     >
       {message && (
-        <div className="pointer-events-auto flex max-w-md items-start gap-3 rounded-card bg-ink px-4 py-3 text-sm text-cream shadow-[var(--shadow-card-hover)]">
+        <div className="pointer-events-auto flex max-w-md items-start gap-3 rounded-card bg-ink px-4 py-3 text-sm text-lin shadow-[var(--shadow-card-hover)]">
           <p className="flex-1">{message}</p>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fermer le message"
-            className="text-cream/80 hover:text-cream"
+            className="text-lin/80 hover:text-lin"
           >
             ×
           </button>

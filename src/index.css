@@ -3,34 +3,41 @@
 @tailwind utilities;
 
 /* ============================================================
-   TOKENS DE THÈME — le seul endroit à modifier pour rhabiller
-   l'app aux couleurs d'un autre traiteur (cf. règle data-driven).
-   Base sobre proposée pour J&J : fond crème, accents profonds.
-   À valider / remplacer par la charte J&J à l'étape 5.
+   CHARTE J&J TRAITEUR (reprise du site j-jtraiteur.fr)
+   Le seul endroit à modifier pour rhabiller l'app.
+   Couleurs en composantes oklch (L C H) : Tailwind les utilise sous la
+   forme oklch(var(--x) / <alpha-value>), ce qui fait fonctionner les
+   modificateurs d'opacité (bg-fond/95…).
+   Contrastes vérifiés par tests/contrast.test.ts :
+   - encre sur lin clair / fond : texte courant (≥ 14:1)
+   - ardoise sur lin clair / fond : titres, texte secondaire (≥ 6,8:1)
+   - lin sur ardoise : boutons principaux (5,6:1)
+   - encre sur bronze : badges et coches (5:1)
+   - le bronze n'est JAMAIS une couleur de texte sur fond clair (2,8:1) :
+     filets, fonds de badges, décors uniquement.
    ============================================================ */
 :root {
   /* Couleurs */
-  --color-cream: #faf6ef;        /* fond général, chaleureux */
-  --color-cream-hi: #fefcf8;     /* haut du dégradé, plus clair */
-  --color-surface: #ffffff;      /* cartes, panneaux */
-  --color-ink: #2b2521;          /* texte principal, profond */
-  --color-muted: #756a5f;        /* texte secondaire — ≥ 4,5:1 sur crème et sur blanc (cf. tests/contrast) */
-  --color-accent: #8c6a3f;       /* accent profond (bronze/or) */
-  --color-accent-dark: #6e5230;  /* accent au survol */
-  --color-line: #e8ded0;         /* filets, bordures discrètes */
-  --color-error: #b3261e;        /* erreurs de formulaire — ≥ 4,5:1 sur crème et sur blanc */
+  --color-slate: 0.438 0.034 247;        /* ardoise — couleur principale (boutons, titres) */
+  --color-slate-deep: 0.346 0.027 246.5; /* ardoise profonde — survol */
+  --color-lin: 0.892 0.017 76.1;         /* lin — texte des boutons, filets, bordures */
+  --color-lin-light: 0.957 0.009 78.3;   /* lin clair — fond général */
+  --color-ink: 0.252 0.017 248.5;        /* encre — texte */
+  --color-bronze: 0.66 0.072 67.5;       /* bronze — accent décoratif (filets, badges, coches) */
+  --color-fond: 0.983 0.005 78.3;        /* fond — cartes, panneaux */
+  --color-error: 0.501 0.178 28.7;       /* erreurs de formulaire (≈ #b3261e) */
 
-  /* Typographies */
-  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;  /* titres, faire-part */
-  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Typographies (auto-hébergées, cf. src/main.tsx) */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif; /* titres */
+  --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;  /* texte */
 
-  /* Formes */
-  --radius-card: 16px;
+  /* Formes : rayons sobres, comme le site */
+  --radius-card: 4px;
 
-  /* Ombres chaudes (teintées brun, pas noir) */
-  --shadow-sm: 0 1px 2px rgba(70, 50, 30, 0.06);
-  --shadow-card: 0 2px 8px -2px rgba(70, 50, 30, 0.10), 0 8px 24px -12px rgba(70, 50, 30, 0.12);
-  --shadow-card-hover: 0 4px 14px -4px rgba(70, 50, 30, 0.16), 0 14px 34px -14px rgba(70, 50, 30, 0.18);
+  /* Ombres discrètes, teintées ardoise */
+  --shadow-sm: 0 1px 2px oklch(var(--color-slate) / 0.06);
+  --shadow-card: 0 2px 8px -2px oklch(var(--color-slate) / 0.1), 0 8px 24px -12px oklch(var(--color-slate) / 0.12);
+  --shadow-card-hover: 0 4px 14px -4px oklch(var(--color-slate) / 0.16), 0 14px 34px -14px oklch(var(--color-slate) / 0.18);
 
   color-scheme: light;
 }
@@ -43,10 +50,8 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-cream);
-  background-image: radial-gradient(120% 90% at 50% -10%, var(--color-cream-hi) 0%, var(--color-cream) 55%);
-  background-attachment: fixed;
-  color: var(--color-ink);
+  background-color: oklch(var(--color-lin-light));
+  color: oklch(var(--color-ink));
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -57,18 +62,14 @@ h2,
 h3 {
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
-}
-
-h1 {
-  font-weight: 600;
+  line-height: 1.15;
+  color: oklch(var(--color-slate));
 }
 
 /* Focus visible au clavier sur TOUS les éléments interactifs (anneau accent).
    Les titres d'étape reçoivent le focus par programme : pas d'anneau. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid oklch(var(--color-slate));
   outline-offset: 2px;
 }
 [tabindex='-1']:focus {
@@ -82,8 +83,8 @@ h1 {
   50% { opacity: 0.55; }
 }
 .skeleton {
-  background-color: var(--color-line);
-  border-radius: 0.5rem;
+  background-color: oklch(var(--color-lin));
+  border-radius: var(--radius-card);
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -92,11 +93,11 @@ h1 {
 
 @layer components {
   .input {
-    @apply w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink outline-none transition-colors;
-    @apply placeholder:text-muted focus:border-accent;
+    @apply w-full rounded-card border border-lin bg-fond px-4 py-3 text-ink outline-none transition-colors;
+    @apply placeholder:text-muted focus:border-slate;
     box-shadow: var(--shadow-sm);
   }
   .input:focus {
-    box-shadow: 0 0 0 3px rgba(140, 106, 63, 0.12);
+    box-shadow: 0 0 0 3px oklch(var(--color-slate) / 0.15);
   }
 }

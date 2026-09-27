@@ -8,6 +8,7 @@
 // relancés, sans désinscription. Au plus 50 envois par exécution, une seule
 // relance par brouillon.
 
+import { brandContact } from '../_shared/brand.ts'
 import { adminClient, env, json, safeEqual } from '../_shared/guard.ts'
 import { sendEmail } from '../_shared/resend.ts'
 import { reminderEmail, stepLabelOf } from './email.ts'
@@ -77,6 +78,7 @@ Deno.serve(async (req) => {
         resumeUrl: `${siteUrl}/reprendre/${token}`,
         unsubscribeUrl: `${siteUrl}/desinscription/${token}`,
         traiteurPhone: env('TRAITEUR_PHONE') || null,
+        brand: brandContact(env),
       })
       const ok = await sendEmail({
         apiKey,

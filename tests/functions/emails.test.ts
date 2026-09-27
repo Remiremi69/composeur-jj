@@ -127,6 +127,41 @@ describe('emails de soumission : prix et recontact', () => {
   })
 })
 
+describe('gabarit commun des emails (logo, pied de page, bouton)', () => {
+  const brand = { phone: '+33 6 71 17 06 73', email: 'contact@exemple.fr', appUrl: 'https://composer.exemple.fr' }
+
+  it('couple : logo, bouton « Voir mon menu en ligne », coordonnées et SIRET', () => {
+    const menuUrl = 'https://composer.exemple.fr/menu/306c2a9d-4de2-4a83-bd95-8a75d20be2e6'
+    const { html } = coupleEmail(recap(), { brand, menuUrl })
+    expect(html).toContain('src="https://composer.exemple.fr/brand/jj-logo-slate.png"')
+    expect(html).toContain('Voir mon menu en ligne')
+    expect(html).toContain(`href="${menuUrl}"`)
+    expect(html).toContain('href="tel:+33671170673"')
+    expect(html).toContain('mailto:contact@exemple.fr')
+    expect(html).toContain('https://j-jtraiteur.fr')
+    expect(html).toContain('SIRET 815 186 382 00017')
+  })
+
+  it('sans adresse du Composeur : nom en texte et pas de bouton', () => {
+    const { html } = coupleEmail(recap())
+    expect(html).not.toContain('<img')
+    expect(html).toContain('J&amp;J Traiteur')
+    expect(html).not.toContain('Voir mon menu en ligne')
+  })
+
+  it('traiteur : même gabarit, sans bouton du couple', () => {
+    const { html } = traiteurEmail(recap(), null, { brand })
+    expect(html).toContain('jj-logo-slate.png')
+    expect(html).toContain('SIRET 815 186 382 00017')
+    expect(html).not.toContain('Voir mon menu en ligne')
+  })
+
+  it('les coordonnées du pied de page sont échappées', () => {
+    const { html } = coupleEmail(recap(), { brand: { ...brand, email: '"><script>x</script>' } })
+    expect(html).not.toContain('<script>x')
+  })
+})
+
 describe('email de relance', () => {
   const data = {
     coupleNames: 'Camille <b>& Alex</b>',
@@ -146,6 +181,7 @@ describe('email de relance', () => {
     expect(html).toContain('href="tel:+33671170673"')
     expect(html).toContain(`href="${data.unsubscribeUrl}"`)
     expect(html).toContain('19 juin 2027')
+    expect(html).toContain('SIRET 815 186 382 00017') // gabarit commun
   })
 
   it('échappe les prénoms', () => {

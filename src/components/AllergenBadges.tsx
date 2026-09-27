@@ -9,7 +9,7 @@ export default function AllergenBadges({ allergens }: { allergens: string[] }) {
       {allergens.map((a) => (
         <span
           key={a}
-          className="rounded-full bg-cream px-2 py-0.5 text-[11px] capitalize text-muted"
+          className="rounded-card bg-lin-light px-2 py-0.5 text-[11px] capitalize text-muted"
         >
           {formatAllergen(a)}
         </span>
