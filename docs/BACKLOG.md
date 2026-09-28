@@ -17,6 +17,10 @@ Points identifiés, à traiter dans un lot ultérieur.
   `submit_composition()` au lot 2. Conservée uniquement pour que l'ancienne
   version de l'Edge Function reste opérationnelle pendant la mise en
   production du lot 2. *(Noté au lot 2.)*
+- **Supprimer la colonne `compositions.handled`** (ancien « traité »),
+  remplacée par `crm_status` au lot 5 et conservée seulement pour pouvoir
+  revenir en arrière. À retirer par une migration une fois le lot 5 validé.
+  *(Noté au lot 5.)*
 
 ## Interface
 

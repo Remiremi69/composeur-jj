@@ -19,6 +19,8 @@ export type {
   StepRuleOverride,
 } from '@core/types'
 
+import type { Estimate } from '@core/pricing'
+
 export type CompositionStatus = 'draft' | 'submitted'
 
 export interface Composition {
@@ -32,7 +34,7 @@ export interface Composition {
   guest_count: number | null
   status: CompositionStatus
   total_estimate: number | null
-  handled: boolean
+  handled: boolean // ancien « traité » (lot 5 : remplacé par crm_status, plus affiché)
   share_token: string
   emails_sent_at: string | null // renseigné quand les emails sont partis
   updated_at: string
@@ -45,7 +47,29 @@ export interface Composition {
   last_step: string | null
   reminder_sent_at: string | null
   reminders_opt_out: boolean
-  consent_at: string | null
+  consent_at: string | null // date d'envoi (acceptation de la mention)
+  // Lot 5 — pilotage
+  crm_status: CrmStatus
+  lost_reason: LostReason | null
+  contacted_at: string | null // premier contact
+  estimate: Estimate | null // détail du prix figé à l'envoi (absent avant le lot 5)
+  is_test: boolean
+}
+
+export type CrmStatus = 'nouveau' | 'contacte' | 'degustation' | 'devis_envoye' | 'signe' | 'perdu'
+export type LostReason = 'prix' | 'date_indisponible' | 'autre_traiteur' | 'sans_reponse' | 'autre'
+
+// Note interne ou changement de statut (écrit par un déclencheur en base).
+export interface CompositionNote {
+  id: string
+  composition_id: string
+  author_id: string | null
+  author_email: string | null
+  kind: 'note' | 'statut'
+  body: string | null
+  from_status: CrmStatus | null
+  to_status: CrmStatus | null
+  created_at: string
 }
 
 export interface CompositionItem {

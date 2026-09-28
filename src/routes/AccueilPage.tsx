@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -14,6 +14,7 @@ import FormField from '../components/FormField'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { telHref } from '../lib/format'
+import { track } from '../lib/tracking'
 
 // Clé publique Cloudflare Turnstile : protège la création du brouillon
 // (qui peut donner lieu à un email de rappel). Widget absent si non définie.
@@ -42,6 +43,10 @@ export default function AccueilPage() {
   )
   const [email, setEmail] = useState(couple?.email ?? '')
   const [errors, setErrors] = useState<Partial<Record<CoupleField, string>>>({})
+
+  useEffect(() => {
+    track('Accueil vu')
+  }, [])
 
   // Modifier un champ efface son erreur (et seulement la sienne).
   function update(field: CoupleField, set: (v: string) => void, value: string) {
@@ -73,6 +78,7 @@ export default function AccueilPage() {
     })
     // Le brouillon est créé côté serveur à la sauvegarde qui suit.
     startDraft(turnstileToken)
+    track('Accueil validé')
     navigate('/formule')
   }
 

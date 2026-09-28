@@ -37,6 +37,7 @@ export interface Formule {
   included_steps: string[] // slugs des étapes incluses
   highlights: string[] // lignes affichées sur la carte de la formule
   step_rules?: Record<string, StepRuleOverride> | null // surcharges de règles par étape
+  audience?: string | null // « pour qui » (lot 5), affichée sous le nom si renseignée
   position: number
   is_active: boolean | null
 }

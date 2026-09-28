@@ -113,6 +113,8 @@ const catalog: CatalogState = {
   options: [],
   inclusions: [],
   traiteurPhone: null,
+  popularItemIds: new Set(),
+  popularFormuleId: null,
   loading: false,
   error: null,
 }

@@ -14,6 +14,7 @@
 // renvoyé d'autre que ce que le client a lui-même envoyé.
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
+import { brandContact } from '../_shared/brand.ts'
 import {
   isShareToken,
   parseDraftCouple,
@@ -24,6 +25,7 @@ import type { Catalog } from '../_shared/core/types.ts'
 import {
   adminClient,
   checkRateLimit,
+  env,
   GENERIC_ERROR,
   guardRequest,
   ipHashOf,
@@ -32,6 +34,7 @@ import {
   passesTurnstile,
   readJsonObject,
 } from '../_shared/guard.ts'
+import { leadSummary, notifyWebhook } from '../_shared/webhook.ts'
 
 Deno.serve(async (req) => {
   const guard = guardRequest(req, ['POST'])
@@ -91,6 +94,21 @@ async function createDraft(
     .select('id, share_token')
     .single()
   if (error || !data) throw new Error(`création du brouillon : ${error?.message ?? 'aucune ligne'}`)
+
+  // Notification instantanée (n8n), en arrière-plan.
+  notifyWebhook(
+    leadSummary({
+      event: 'draft_created',
+      id: data.id,
+      coupleNames: couple.value.coupleNames,
+      email: couple.value.email,
+      weddingDate: couple.value.weddingDate,
+      guestCount: couple.value.guestCount,
+      source,
+      appUrl: brandContact(env).appUrl,
+    }),
+    env,
+  )
 
   return json({ ok: true, compositionId: data.id, shareToken: data.share_token }, 200, cors)
 }

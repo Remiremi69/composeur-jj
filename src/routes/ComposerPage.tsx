@@ -23,6 +23,7 @@ import { ScreenSkeleton } from '../components/Skeletons'
 import StepTrail from '../components/StepTrail'
 import Toast, { useToast } from '../components/Toast'
 import type { Item, Option, Selections, Step } from '../types/db'
+import { track } from '../lib/tracking'
 
 // Retour depuis le récapitulatif (« Modifier ») : conservé d'écran en écran.
 type NavState = { fromRecap?: boolean } | null
@@ -161,7 +162,11 @@ export default function ComposerPage() {
   const navState = fromRecap ? { fromRecap: true } : undefined
 
   const goTo = (i: number) => navigate(`/composer/${screens[i].slug}`, { state: navState })
-  const goNext = () => (isLastScreen ? navigate('/options', { state: navState }) : goTo(index + 1))
+  const goNext = () => {
+    if (screen) track('Étape validée', { étape: screen.slug, numéro: index + 1 })
+    if (isLastScreen) navigate('/options', { state: navState })
+    else goTo(index + 1)
+  }
   const goBack = () => (index > 0 ? goTo(index - 1) : navigate('/formule'))
 
   const detailStep = detailItem ? stepOfItem(detailItem) : null

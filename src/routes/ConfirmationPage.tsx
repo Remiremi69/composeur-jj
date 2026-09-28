@@ -5,6 +5,7 @@ import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { telHref } from '../lib/format'
 import { downloadMenuPdf } from '../lib/menuPdf'
+import { track } from '../lib/tracking'
 import { appUrl, BOOKING_URL, CONFIRMATION_MESSAGE, shareText } from '../config/brand'
 
 // Après l'envoi : on dit clairement ce qui se passe, puis on propose la
@@ -111,7 +112,13 @@ const secondaryButton =
 function CallToAction({ phone }: { phone: string | null }) {
   if (BOOKING_URL) {
     return (
-      <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className={primaryButton}>
+      <a
+        href={BOOKING_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => track('Réservation appel cliquée', { type: 'reservation' })}
+        className={primaryButton}
+      >
         Réserver un appel
         <span className="sr-only"> (s’ouvre dans un nouvel onglet)</span>
       </a>
@@ -119,7 +126,11 @@ function CallToAction({ phone }: { phone: string | null }) {
   }
   if (!phone) return null
   return (
-    <a href={`tel:${telHref(phone)}`} className={primaryButton}>
+    <a
+      href={`tel:${telHref(phone)}`}
+      onClick={() => track('Réservation appel cliquée', { type: 'appel' })}
+      className={primaryButton}
+    >
       Nous appeler · {phone}
     </a>
   )
@@ -138,6 +149,7 @@ function ShareButtons({ link }: { link: string }) {
     try {
       await navigator.clipboard.writeText(link)
       setCopyState('copied')
+      track('Menu partagé', { canal: 'lien' })
     } catch {
       setCopyState('failed')
     }
@@ -146,6 +158,7 @@ function ShareButtons({ link }: { link: string }) {
   async function nativeShare() {
     try {
       await navigator.share({ title: 'Notre menu de mariage', text })
+      track('Menu partagé', { canal: 'natif' })
     } catch {
       // partage annulé : rien à faire
     }
@@ -161,6 +174,7 @@ function ShareButtons({ link }: { link: string }) {
           href={`https://wa.me/?text=${encodeURIComponent(text)}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => track('Menu partagé', { canal: 'whatsapp' })}
           className={secondaryButton}
         >
           WhatsApp
@@ -188,7 +202,9 @@ function PdfButton({ token }: { token: string }) {
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle')
   async function download() {
     setState('loading')
-    setState((await downloadMenuPdf(token)) ? 'idle' : 'error')
+    const ok = await downloadMenuPdf(token)
+    if (ok) track('PDF téléchargé')
+    setState(ok ? 'idle' : 'error')
   }
   return (
     <span>

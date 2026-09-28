@@ -109,7 +109,8 @@ describe('validateComposition — formule, plats et règles', () => {
   })
 
   it('signale une étape pick_one sans choix', () => {
-    const { 'f-table': _omit, ...sansFormat } = validPayload().selections
+    const sansFormat = { ...validPayload().selections }
+    delete sansFormat['f-table']
     expect(errorsOf(validPayload({ selections: sansFormat }))).toEqual([
       'Étape « Format de réception » : choisissez 1 format (0 choisi).',
     ])

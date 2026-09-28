@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useComposition } from '../context/CompositionContext'
 import { fetchDraft } from '../lib/drafts'
+import { track } from '../lib/tracking'
 
 // Page d'arrivée d'un lien de reprise (/reprendre/:token), par exemple depuis
 // l'email de relance. Brouillon → on restaure tout et on renvoie à la
@@ -36,6 +37,7 @@ export default function ResumePage() {
           selections: cs.selections ?? {},
           optionIds: cs.optionIds ?? [],
         })
+        track('Reprise brouillon')
         navigate(routeForStep(currentStep, r.formuleId), { replace: true })
       } else {
         setState(r.status)

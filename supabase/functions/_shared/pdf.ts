@@ -21,7 +21,7 @@ import { eur, formatDate, formatPhone, type RecapData } from './recap.ts'
 const WIN_ANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ'
 export function clean(s: string | null | undefined): string {
   return Array.from(
-    (s ?? '').replace(/[     ⁠\t\r\n]/g, ' '),
+    (s ?? '').replace(/[\u00A0\u2007\u202F\u2009\u200A\u2060\t\r\n]/g, ' '),
     (ch) => {
       const code = ch.codePointAt(0) ?? 0
       if ((code >= 0x20 && code <= 0x7e) || (code >= 0xa1 && code <= 0xff)) return ch

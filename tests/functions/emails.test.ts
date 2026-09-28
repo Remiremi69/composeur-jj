@@ -9,7 +9,7 @@ import {
 } from '../../supabase/functions/send-draft-reminders/email.ts'
 
 const piege = '<a href="https://phishing.example">Cliquez ici</a> & "Co"'
-const norm = (s: string) => s.replace(/[  ]/g, ' ')
+const norm = (s: string) => s.replace(/[\u00A0\u202F]/g, ' ')
 
 function recap(overrides: Partial<RecapData> = {}): RecapData {
   return {

@@ -4,16 +4,17 @@ import { motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { freeSteps } from '@core/journey'
-import { formatPrice } from '../lib/format'
+import { formatPrice, formatTotal } from '../lib/format'
 import { itemsForStep } from '../lib/rules'
 import IncludedInFormule from '../components/IncludedInFormule'
 import InclusionsPanel from '../components/InclusionsPanel'
 import { FormulesSkeleton } from '../components/Skeletons'
+import { track } from '../lib/tracking'
 
 export default function FormulePage() {
   const navigate = useNavigate()
   const { couple, formuleId, setFormule, setCurrentStep } = useComposition()
-  const { formules, steps, items, inclusions, loading, error } = useCatalog()
+  const { formules, steps, items, inclusions, popularFormuleId, loading, error } = useCatalog()
 
   useEffect(() => {
     if (!couple) navigate('/', { replace: true })
@@ -30,6 +31,7 @@ export default function FormulePage() {
 
   function choose(id: string) {
     setFormule(id)
+    track('Formule choisie', { formule: formules.find((f) => f.id === id)?.slug ?? 'inconnue' })
     navigate('/composer')
   }
 
@@ -50,6 +52,7 @@ export default function FormulePage() {
       <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-3">
         {formules.map((f, i) => {
           const selected = f.id === formuleId
+          const popular = f.id === popularFormuleId
           return (
             <motion.div
               key={f.id}
@@ -58,13 +61,21 @@ export default function FormulePage() {
               whileHover={{ y: -5 }}
               transition={{ duration: 0.3, delay: i * 0.08 }}
               style={{ boxShadow: selected ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
-              className={`flex flex-col rounded-card border bg-fond p-6 transition-colors ${
+              className={`relative flex flex-col rounded-card border bg-fond p-6 transition-colors ${
                 selected ? 'border-slate' : 'border-lin'
               }`}
             >
+              {/* Formule la plus choisie (au moins 10 menus envoyés) */}
+              {popular && (
+                <p className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-card bg-bronze px-3 py-1 text-xs font-bold text-ink">
+                  La plus choisie
+                </p>
+              )}
+
               {/* En-tête : nom (le prix est en bas, façon carte de restaurant) */}
               <div className="text-center">
                 <h2 className="font-display text-3xl text-slate">{f.name}</h2>
+                {f.audience && <p className="mt-1 text-sm italic text-ink">{f.audience}</p>}
                 {f.subtitle && <p className="mt-1 text-sm text-muted">{f.subtitle}</p>}
               </div>
 
@@ -100,6 +111,10 @@ export default function FormulePage() {
                   {formatPrice(f.price_per_person)}
                 </span>
                 <span className="text-xs uppercase tracking-[0.12em] text-muted">/ personne</span>
+              </p>
+              {/* Ordre de grandeur pour le nombre de convives saisi à l'accueil */}
+              <p className="mt-0.5 text-right text-xs text-muted">
+                ≈ {formatTotal(Number(f.price_per_person) * couple.guestCount)} pour {couple.guestCount} convives
               </p>
 
               {/* Choix */}

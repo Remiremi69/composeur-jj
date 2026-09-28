@@ -23,6 +23,7 @@ import InclusionsPanel from '../components/InclusionsPanel'
 import MenuView from '../components/MenuView'
 import PriceSummary from '../components/PriceSummary'
 import { MenuSkeleton } from '../components/Skeletons'
+import { guestBracket, track } from '../lib/tracking'
 
 // Clé publique Cloudflare Turnstile : le widget n'apparaît que si elle est définie.
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
@@ -64,6 +65,10 @@ export default function RecapPage() {
   useEffect(() => {
     setCurrentStep('recap')
   }, [setCurrentStep])
+
+  useEffect(() => {
+    track('Récap vu')
+  }, [])
 
   // Dès que le couple corrige ses informations, on retire les anciennes erreurs.
   useEffect(() => {
@@ -143,12 +148,17 @@ export default function RecapPage() {
     })
     setSubmitting(false)
     if (result.ok) {
+      track('Envoi', {
+        formule: formules.find((f) => f.id === formuleId)?.slug ?? 'inconnue',
+        convives: guestBracket(couple.guestCount),
+      })
       markSubmitted(result.shareToken)
       navigate('/confirmation', {
         state: { emailSent: result.emailSent, shareToken: result.shareToken },
       })
       return
     }
+    track('Erreur envoi')
     setSubmitErrors(result.errors)
     // Un jeton Turnstile ne sert qu'une fois : on en redemande un.
     if (needsTurnstile) {

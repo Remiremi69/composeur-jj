@@ -40,6 +40,7 @@ supabase/
     _shared/pdf.ts                PDF du menu (joint aux emails : complet ; menu-pdf : sans coordonnées)
     _shared/email-layout.ts       Gabarit commun des emails (logo, bouton, pied de page)
     _shared/menu.ts               Menu envoyé en lecture seule (sans coordonnées)
+    _shared/webhook.ts            Notification instantanée (n8n) : résumé du lead, non bloquant, 3 s max
     submit-composition/           Envoi du menu : validation, prix serveur, enregistrement atomique, emails, PDF
     save-draft/                   Création et sauvegarde automatique des brouillons
     get-draft/                    Reprise d'un brouillon / menu envoyé en lecture seule
@@ -141,6 +142,28 @@ Le front l'importe via l'alias `@core/*` (voir `tsconfig.app.json` et
   PDF), puis redéployer les fonctions. Un test échoue si le logo de
   `public/brand/` et celui des fonctions ne concordent pas.
 
+### Pilotage (lot 5)
+
+- **CRM** : `compositions.crm_status` (nouveau → contacté → dégustation →
+  devis envoyé → signé, ou perdu avec `lost_reason`), `contacted_at` rempli
+  par la base au premier contact. Chaque changement de statut est écrit par un
+  déclencheur dans `composition_notes` (`kind = 'statut'`, colonnes
+  structurées `from_status` / `to_status`, auteur, date) ; les notes internes
+  y sont aussi (`kind = 'note'`), sans modification ni suppression possibles.
+- **Statistiques** (`src/lib/crm.ts`, testées) : l'entonnoir compte l'étape
+  la plus avancée **jamais atteinte**, lue dans cet historique. Les
+  compositions `is_test` sont exclues partout (statistiques, badges).
+- **Prix figé** : `compositions.estimate` (détail du prix au moment de
+  l'envoi) ; pour les demandes antérieures, la fiche recalcule aux prix
+  actuels et le signale.
+- **Preuve sociale** : `popular_items()` et `popular_formule()` (security
+  definer, lisibles par le site) ne renvoient que des identifiants, et rien
+  sous 10 menus envoyés hors tests.
+- **Mesure d'audience** (`src/lib/tracking.ts`) : Plausible sans cookie,
+  pages vues envoyées à la main avec les jetons masqués, aucun champ
+  personnel dans les événements.
+- Lien direct vers une fiche : `/admin?demande=<id>`.
+
 ---
 
 ## Lancer en local
@@ -207,6 +230,7 @@ checklist de tests).
 | `VITE_TRAITEUR_SITE_URL` | Site vitrine de J&J (en-tête : lien « ← j-jtraiteur.fr » et logo) |
 | `VITE_APP_URL` | Adresse publique du Composeur (balises de partage, liens partagés) |
 | `VITE_BOOKING_URL` | Prise de rendez-vous en ligne (« Réserver un appel ») ; vide = « Nous appeler » |
+| `VITE_PLAUSIBLE_DOMAIN` | Domaine déclaré dans Plausible ; vide = aucune mesure d'audience (et jamais hors production) |
 
 ### Edge Functions (secrets Supabase — jamais dans le front)
 
@@ -222,6 +246,8 @@ checklist de tests).
 | `SITE_URL` | Adresse du Composeur : liens des emails (reprise, menu en ligne), logo des emails |
 | `TRAITEUR_PHONE` | Téléphone de J&J — **source unique** : en-tête du site, confirmation, alerte « date proche » (via `public-config`), emails, PDF |
 | `CRON_SECRET` | Secret partagé avec la tâche pg_cron qui déclenche les relances |
+| `N8N_WEBHOOK_URL` | Notification instantanée d'un nouveau lead (facultatif : vide = rien n'est envoyé) |
+| `N8N_WEBHOOK_SECRET` | Envoyé dans l'en-tête `X-Webhook-Secret`, à vérifier côté n8n |
 
 `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont fournis automatiquement par
 Supabase à la fonction.

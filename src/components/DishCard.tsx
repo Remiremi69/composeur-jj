@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import type { Item } from '../types/db'
 import { dietaryLabel, formatPrice } from '../lib/format'
 import DishPlaceholder from './DishPlaceholder'
+import { useCatalog } from '../hooks/useCatalog'
 
 interface DishCardProps {
   item: Item
@@ -13,6 +14,8 @@ interface DishCardProps {
 // Carte d'un plat. Jamais grisée : si le maximum est atteint, c'est l'écran
 // qui explique quoi faire (message). Le bouton « i » ouvre la fiche détail.
 export default function DishCard({ item, selected, onToggle, onInfo }: DishCardProps) {
+  // Parmi les 3 plats les plus choisis de l'étape (au moins 10 menus envoyés).
+  const popular = useCatalog().popularItemIds.has(item.id)
   return (
     <div className="relative">
       <motion.button
@@ -65,6 +68,12 @@ export default function DishCard({ item, selected, onToggle, onInfo }: DishCardP
 
         {/* Corps (espace à droite pour le bouton « i ») */}
         <div className="flex flex-1 flex-col gap-2 p-3 pr-10">
+          {popular && (
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate">
+              <span className="text-bronze" aria-hidden="true">★ </span>
+              Très demandé
+            </p>
+          )}
           <h3 className="font-display text-base leading-tight text-ink">{item.name}</h3>
           {item.description && <p className="line-clamp-3 text-sm text-muted">{item.description}</p>}
 

@@ -10,6 +10,9 @@ export interface CatalogState {
   options: Option[]
   inclusions: Inclusion[]
   traiteurPhone: string | null // source unique : secret TRAITEUR_PHONE (via public-config)
+  // Preuve sociale (vide tant qu'il y a moins de 10 menus envoyés, hors tests)
+  popularItemIds: Set<string> // « ★ Très demandé »
+  popularFormuleId: string | null // « La plus choisie »
   loading: boolean
   error: string | null
 }
@@ -21,6 +24,8 @@ const EMPTY: CatalogState = {
   options: [],
   inclusions: [],
   traiteurPhone: null,
+  popularItemIds: new Set(),
+  popularFormuleId: null,
   loading: true,
   error: null,
 }
@@ -32,7 +37,7 @@ async function loadCatalog(): Promise<CatalogState> {
   // Filtre explicite sur les éléments actifs : un admin connecté dans le même
   // navigateur a le droit de lire les inactifs (back-office), mais le
   // parcours public ne doit jamais les proposer.
-  const [formules, steps, items, options, inclusions, config] = await Promise.all([
+  const [formules, steps, items, options, inclusions, config, popularItems, popularFormule] = await Promise.all([
     supabase.from('formules').select('*').eq('is_active', true).order('position', { ascending: true }),
     supabase.from('steps').select('*').order('position', { ascending: true }),
     supabase.from('items').select('*').eq('is_active', true).order('position', { ascending: true }),
@@ -40,6 +45,9 @@ async function loadCatalog(): Promise<CatalogState> {
     supabase.from('inclusions').select('*').eq('is_active', true).order('position', { ascending: true }),
     // Facultatif : sans le téléphone, le site fonctionne (message sans numéro).
     supabase.functions.invoke('public-config', { method: 'GET' }).catch(() => ({ data: null })),
+    // Facultatif : sans ces fonctions (erreur, seuil non atteint), pas de badge.
+    supabase.rpc('popular_items'),
+    supabase.rpc('popular_formule'),
   ])
 
   // Options et inclusions sont facultatives : pas d'erreur bloquante.
@@ -53,6 +61,10 @@ async function loadCatalog(): Promise<CatalogState> {
     options: options.data ?? [],
     inclusions: inclusions.data ?? [],
     traiteurPhone: typeof phone === 'string' && phone ? phone : null,
+    popularItemIds: new Set(
+      ((popularItems.data as { item_id: string }[] | null) ?? []).map((r) => r.item_id),
+    ),
+    popularFormuleId: typeof popularFormule.data === 'string' ? popularFormule.data : null,
     loading: false,
     error,
   }

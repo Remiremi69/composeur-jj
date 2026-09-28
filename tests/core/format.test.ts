@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatEuros, optionPriceLabel } from '@core/format'
 
 // Intl met des espaces insécables (U+00A0 / U+202F) : on les normalise.
-const norm = (s: string) => s.replace(/[  ]/g, ' ')
+const norm = (s: string) => s.replace(/[\u00A0\u202F]/g, ' ')
 
 describe('formatEuros', () => {
   it('pas de centimes pour un montant rond', () => {

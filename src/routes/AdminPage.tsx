@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { useAdminData } from '../hooks/useAdminData'
 import type { Composition } from '../types/db'
 import AdminLogin from '../components/admin/AdminLogin'
-import RequestsTable from '../components/admin/RequestsTable'
+import RequestsTable, { DEFAULT_VIEW, type ListView } from '../components/admin/RequestsTable'
 import RequestDetail from '../components/admin/RequestDetail'
 import StatsPanel from '../components/admin/StatsPanel'
 
@@ -83,14 +84,19 @@ function AccessDenied({ email }: { email: string | null }) {
 function AdminDashboard() {
   const data = useAdminData()
   const [tab, setTab] = useState<'demandes' | 'stats'>('demandes')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [listView, setListView] = useState<ListView>(DEFAULT_VIEW)
+  // Fiche ouverte : dans l'adresse (?demande=<id>), pour le lien envoyé par
+  // la notification (n8n) et pour que le bouton retour ferme la fiche.
+  const [params, setParams] = useSearchParams()
+  const selectedId = params.get('demande')
+  const setSelectedId = (id: string | null) => setParams(id ? { demande: id } : {}, { replace: false })
 
   const selected = selectedId
-    ? data.compositions.find((c) => c.id === selectedId) ?? null
+    ? data.compositions.find((c) => c.id === selectedId && c.status === 'submitted') ?? null
     : null
 
-  async function toggleHandled(c: Composition) {
-    await supabase.from('compositions').update({ handled: !c.handled }).eq('id', c.id)
+  async function toggleTest(c: Composition) {
+    await supabase.from('compositions').update({ is_test: !c.is_test }).eq('id', c.id)
     data.refresh()
   }
 
@@ -117,14 +123,6 @@ function AdminDashboard() {
           <TabButton active={tab === 'stats'} onClick={() => { setTab('stats'); setSelectedId(null) }}>
             Statistiques
           </TabButton>
-          {!data.loading && (
-            <span
-              className="ml-auto self-center rounded-card bg-lin-light px-3 py-1 text-xs text-muted"
-              title="Couples qui ont commencé leur menu sans l’avoir encore envoyé"
-            >
-              Menus en cours : <span className="font-medium text-ink">{data.draftsCount}</span>
-            </span>
-          )}
         </div>
       </header>
 
@@ -136,8 +134,8 @@ function AdminDashboard() {
         ) : tab === 'stats' ? (
           <StatsPanel
             compositions={data.compositions}
+            statusNotes={data.statusNotes}
             compItems={data.compItems}
-            formules={data.formules}
             items={data.items}
           />
         ) : selected ? (
@@ -150,14 +148,25 @@ function AdminDashboard() {
             options={data.options}
             formules={data.formules}
             onBack={() => setSelectedId(null)}
-            onToggleHandled={toggleHandled}
+            onChanged={data.refresh}
           />
         ) : (
-          <RequestsTable
-            compositions={data.compositions}
-            formules={data.formules}
-            onSelect={(c) => setSelectedId(c.id)}
-          />
+          <>
+            {selectedId && (
+              <p className="mb-4 rounded-card border border-lin bg-fond p-3 text-sm text-muted">
+                Cette demande est introuvable (supprimée, ou pas encore envoyée).
+              </p>
+            )}
+            <RequestsTable
+              compositions={data.compositions}
+              formules={data.formules}
+              steps={data.steps}
+              onSelect={(c) => setSelectedId(c.id)}
+              onToggleTest={toggleTest}
+              view={listView}
+              onViewChange={setListView}
+            />
+          </>
         )}
       </main>
     </div>

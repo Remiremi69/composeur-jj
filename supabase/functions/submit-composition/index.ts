@@ -33,6 +33,7 @@ import { buildRecap, type RecapData } from '../_shared/recap.ts'
 import { sendEmail } from '../_shared/resend.ts'
 import { brandContact } from '../_shared/brand.ts'
 import { buildPdf } from '../_shared/pdf.ts'
+import { leadSummary, notifyWebhook } from '../_shared/webhook.ts'
 import { coupleEmail, traiteurEmail } from './emails.ts'
 
 // Ne garde que les champs attendus de la composition (le reste est ignoré).
@@ -153,6 +154,33 @@ Deno.serve(async (req) => {
     }
     const compositionId: string = row.id
     const token: string = row.share_token
+
+    // Détail du prix figé à l'envoi (fiche admin, statistiques).
+    const { error: estimateError } = await admin
+      .from('compositions')
+      .update({ estimate })
+      .eq('id', compositionId)
+    if (estimateError) console.error(`[submit] enregistrement du détail du prix (${compositionId}) :`, estimateError)
+
+    // Notification instantanée (n8n), en arrière-plan.
+    notifyWebhook(
+      leadSummary({
+        event: 'submitted',
+        id: compositionId,
+        coupleNames: payload.coupleNames.trim(),
+        phone,
+        email: payload.email.trim(),
+        weddingDate: payload.weddingDate || null,
+        guestCount: payload.guestCount,
+        venue: payload.venue.trim(),
+        formuleName: formule.name,
+        perPerson: estimate.perPersonAllIn,
+        total: estimate.total,
+        source,
+        appUrl: brandContact(env).appUrl,
+      }),
+      env,
+    )
 
     // --- Emails (n'empêchent jamais la réponse : la demande est enregistrée)
     let emailSent = false

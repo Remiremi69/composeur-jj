@@ -766,6 +766,228 @@ delete from public.submission_log;
 
 ---
 
+## Lot 5 — Pilotage
+
+### Ce qui change
+
+- **Back-office** : onglets Nouveaux / En cours / Signés / Perdus / Menus en
+  cours, recherche, tri, export CSV. Fiche : appel, WhatsApp, détail du prix,
+  **statut** (motif obligatoire pour « Perdu »), **notes internes** et
+  historique, bouton « Marquer comme test ».
+- **Statistiques** : entonnoir 30 / 90 jours, délai de premier contact,
+  conversion par source, panier des signés, motifs de perte, plats.
+- **Notification instantanée** (n8n) à chaque menu envoyé et chaque menu
+  commencé — facultative.
+- **Mesure d'audience** Plausible, sans cookie — facultative.
+- **Preuve sociale** : « ★ Très demandé » et « La plus choisie » (à partir de
+  10 menus envoyés, hors tests), « ≈ total pour N convives » sous chaque
+  formule.
+
+Ancien bouton « traité » : les demandes « traitées » deviennent
+**« Contacté »** (sans date de premier contact : elles sont ignorées dans le
+délai moyen).
+
+---
+
+### Étape 1 — Vérifier la CLI
+
+```bash
+cd C:\Users\mormo\Desktop\composeur-jj
+```
+```bash
+npx supabase migration list
+```
+
+Attendu : `20260928170000` en **Local** uniquement, les autres dans les
+deux colonnes.
+
+---
+
+### Étape 2 — Appliquer la migration
+
+```bash
+npx supabase db push --dry-run
+```
+
+Attendu : seule `20260928170000_pilotage.sql`. Puis :
+
+```bash
+npx supabase db push
+```
+
+La migration ne fait qu'**ajouter** (colonnes, table des notes, fonctions) :
+le site actuel continue de fonctionner.
+
+---
+
+### Étape 3 — Déployer les fonctions
+
+```bash
+npx supabase functions deploy submit-composition
+```
+```bash
+npx supabase functions deploy save-draft
+```
+
+---
+
+### Étape 4 — Déployer le front
+
+**Avant la bascule de domaine**, comme au lot 4, sans la redirection :
+
+```bash
+git push origin HEAD~1:master
+```
+
+Attendez **Ready** sur Vercel.
+
+---
+
+### Étape 5 — Marquer vos envois de test
+
+Dans `/admin`, ouvrez chacune de vos demandes de test et cliquez **« Marquer
+comme test »**. Pour les marquer toutes d'un coup (SQL Editor) — **vérifiez
+d'abord** la liste :
+
+```sql
+select id, couple_names, email, created_at, status
+from public.compositions
+where email = 'mormontremi@gmail.com'
+order by created_at;
+```
+
+Puis, si la liste ne contient que vos tests :
+
+```sql
+update public.compositions set is_test = true
+where email = 'mormontremi@gmail.com';
+```
+
+Les tests restent en base, mais disparaissent de la liste (case « Afficher
+les tests »), des statistiques et du calcul des badges.
+
+---
+
+### Étape 6 — Données de démonstration (si elles sont en production)
+
+Les 6 demandes fictives de l'ancien fichier `supabase/legacy/demo-data.sql`
+(Camille & Alex, Léa & Thomas, Marie & Julien, Sarah & Kevin, Emma & Lucas…)
+ont des emails en `@exemple.fr`. **À lancer vous-même, après vérification.**
+
+1. Vérifier ce qui serait supprimé :
+   ```sql
+   select id, couple_names, email, created_at, status
+   from public.compositions
+   where email like '%@exemple.fr'
+   order by created_at;
+   ```
+2. Si — et seulement si — la liste ne contient que ces demandes fictives :
+   ```sql
+   delete from public.compositions
+   where email like '%@exemple.fr';
+   ```
+   Les plats, options et notes de ces demandes sont supprimés avec elles.
+
+---
+
+### Étape 7 — Notification instantanée n8n (facultatif)
+
+1. Dans n8n, créez un workflow avec un nœud **Webhook** (méthode `POST`).
+   Ajoutez un contrôle de l'en-tête `X-Webhook-Secret` (nœud **IF** : la
+   valeur doit être égale à votre secret), puis l'action voulue (SMS,
+   Telegram, email…).
+2. Générez un secret :
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+   ```
+3. Supabase → **Edge Functions** → **Secrets** :
+
+   | Secret | Valeur |
+   |---|---|
+   | `N8N_WEBHOOK_URL` | l'adresse de **production** du nœud Webhook n8n |
+   | `N8N_WEBHOOK_SECRET` | la valeur de l'étape 2 |
+
+   Pris en compte immédiatement, sans redéploiement.
+
+Contenu envoyé (JSON) : `event` (`submitted` ou `draft_created`), `id`,
+`prenoms`, `telephone`, `email`, `date_mariage`, `convives`, `lieu`,
+`formule`, `estimation_par_personne`, `estimation_totale`, `source`,
+`lien_admin`, `recu_le`. Pour un menu commencé, téléphone, lieu, formule et
+estimation sont vides. Si n8n ne répond pas en 3 secondes, l'envoi est
+abandonné : le couple n'est jamais ralenti.
+
+> Les coordonnées des couples transitent par n8n : c'est un sous-traitant à
+> mentionner dans la politique de confidentialité.
+
+---
+
+### Étape 8 — Mesure d'audience Plausible (facultatif)
+
+1. Créez le site dans Plausible avec le domaine du Composeur
+   (`composeur-jj.vercel.app`, puis `composer.j-jtraiteur.fr` après la
+   bascule).
+2. Plausible → **Site settings** → **Goals** → **Add goal** → **Custom
+   event**, un par événement : `Accueil vu`, `Accueil validé`, `Formule
+   choisie`, `Étape validée`, `Options vues`, `Récap vu`, `Envoi`, `Erreur
+   envoi`, `Reprise brouillon`, `Réservation appel cliquée`, `Menu partagé`,
+   `PDF téléchargé`. Pour voir les détails (formule, étape, canal, source…),
+   ajoutez aussi les **Custom properties** `source`, `formule`, `étape`,
+   `numéro`, `convives`, `canal`, `type`.
+3. Vercel → **Environment Variables** (Production) :
+   `VITE_PLAUSIBLE_DOMAIN` = le domaine déclaré à l'étape 1. Puis
+   redéployez (Deployments → ⋯ → **Redeploy**).
+
+Aucune donnée personnelle n'est envoyée : les adresses `/reprendre/…`,
+`/menu/…` et `/desinscription/…` partent masquées (`/menu/:token`). Plausible
+n'utilise pas de cookie : pas de bandeau de consentement ; ajoutez une ligne
+dans la politique de confidentialité.
+
+---
+
+### Étape 9 — Checklist de tests en production
+
+**Parcours**
+- [ ] Page des formules : sous chaque prix, « ≈ … € pour N convives ».
+- [ ] Avec au moins 10 menus envoyés hors tests : badge « La plus choisie »
+  sur une formule (si elle est seule en tête) et « ★ Très demandé » sur
+  quelques plats. En dessous de 10 : aucun badge (c'est voulu).
+
+**Back-office** (après avoir envoyé un menu de test, puis l'avoir marqué
+comme test à la fin)
+- [ ] Onglets avec compteurs ; la nouvelle demande est dans « Nouveaux ».
+- [ ] Recherche par prénom ou email ; tri par date de mariage.
+- [ ] « Exporter (CSV) » s'ouvre correctement dans Excel (accents, colonnes).
+- [ ] Fiche : « Appeler », « WhatsApp », détail du prix, lien vers le menu.
+- [ ] Statut → « Contacté » : la date de premier contact apparaît en haut.
+- [ ] Statut → « Perdu » : le motif est demandé ; « Marquer comme perdue »
+  reste grisé tant qu'aucun motif n'est choisi.
+- [ ] Ajouter une note : elle apparaît dans l'historique, avec votre email,
+  au-dessus des changements de statut.
+- [ ] Onglet « Menus en cours » : prénoms, email, étape atteinte, dernière
+  activité.
+- [ ] « Statistiques » : entonnoir 30 / 90 jours, délai, sources, paniers,
+  motifs de perte.
+
+**Notification** (si n8n est branché)
+- [ ] Commencer un menu → n8n reçoit `draft_created`.
+- [ ] L'envoyer → n8n reçoit `submitted` ; le lien `lien_admin` ouvre la
+  fiche (après connexion).
+
+**Plausible** (si activé)
+- [ ] Faire un parcours complet → les événements apparaissent dans Plausible
+  (quelques minutes de délai).
+
+### Étape 10 — Nettoyage
+
+Marquez votre menu de test comme test (ou supprimez-le) :
+
+```sql
+delete from public.compositions where email = 'VOTRE_EMAIL' and is_test;
+delete from public.submission_log;
+```
+
+---
+
 ## Ajouter ou changer le logo (à tout moment)
 
 1. **Déposer** les fichiers dans `public/brand/` (noms et formats : lot 4,

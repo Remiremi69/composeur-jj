@@ -15,9 +15,12 @@ import App from './App.tsx'
 import { CatalogProvider } from './context/CatalogContext'
 import { CompositionProvider } from './context/CompositionContext'
 import { captureAttribution } from './lib/attribution'
+import { initTracking } from './lib/tracking'
 
 // Provenance (?source=, utm_*) lue à la première arrivée sur le site.
 captureAttribution()
+// Mesure d'audience (production + VITE_PLAUSIBLE_DOMAIN uniquement).
+initTracking()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

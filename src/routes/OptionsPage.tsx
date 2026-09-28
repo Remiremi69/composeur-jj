@@ -9,6 +9,7 @@ import { formatPrice } from '../lib/format'
 import OptionToggle from '../components/OptionToggle'
 import SaveIndicator from '../components/SaveIndicator'
 import { ListSkeleton } from '../components/Skeletons'
+import { track } from '../lib/tracking'
 
 // Libellés des catégories d'options (table figée : passage en données prévu,
 // cf. docs/BACKLOG.md).
@@ -37,6 +38,10 @@ export default function OptionsPage() {
   useEffect(() => {
     setCurrentStep('options')
   }, [setCurrentStep])
+
+  useEffect(() => {
+    track('Options vues')
+  }, [])
 
   if (!couple || !formuleId) return null
   if (loading) return <ListSkeleton />

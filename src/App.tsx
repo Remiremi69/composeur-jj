@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import AccueilPage from './routes/AccueilPage'
 import FormulePage from './routes/FormulePage'
@@ -11,11 +12,18 @@ import MenuPage from './routes/MenuPage'
 import UnsubscribePage from './routes/UnsubscribePage'
 import BrandHeader from './components/BrandHeader'
 import CatalogGuard from './components/CatalogGuard'
+import { trackPageview } from './lib/tracking'
 
 export default function App() {
   // L'en-tête de marque est affiché sur toutes les pages publiques
   // (pas sur le back-office).
-  const isAdmin = useLocation().pathname.startsWith('/admin')
+  const location = useLocation()
+  const isAdmin = location.pathname.startsWith('/admin')
+
+  // Pages vues (adresses masquées), hors back-office.
+  useEffect(() => {
+    if (!isAdmin) trackPageview(location.pathname, location.search)
+  }, [location.pathname, location.search, isAdmin])
   return (
     <div className="flex min-h-screen flex-col">
       {/* Retire les plats / options qui ne sont plus proposés (et le signale). */}
