@@ -135,7 +135,7 @@ Le front l'importe via l'alias `@core/*` (voir `tsconfig.app.json` et
   partage du menu (copie, WhatsApp, partage natif), PDF via `menu-pdf`.
   Textes modifiables dans `src/config/brand.ts`.
 - **Fichiers de marque** attendus dans `public/brand/` : `jj-logo-slate.png`,
-  `favicon-32.png` (32 × 32), `apple-touch-icon.png` (180 × 180),
+  `favicon.ico` + `favicon-48.png` (48 × 48), `apple-touch-icon.png` (180 × 180),
   `og-image.jpg` (1200 × 630). Après tout changement du logo :
   `npm run brand:sync` (recopie le logo dans le code des fonctions, pour le
   PDF), puis redéployer les fonctions. Un test échoue si le logo de

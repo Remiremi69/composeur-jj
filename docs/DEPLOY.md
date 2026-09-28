@@ -636,8 +636,8 @@ Déposez dans `public/brand/` :
 
 | Fichier | Format | Sert à |
 |---|---|---|
-| `jj-logo-slate.png` | PNG, fond transparent, ~ 600 px de large, < 100 ko | en-tête du site, des emails et du PDF |
-| `favicon-32.png` | PNG 32 × 32 | icône de l'onglet |
+| `jj-logo-slate.png` | PNG, fond transparent, logo ardoise (actuel : rond, 320 × 320), < 100 ko | en-tête du site, des emails et du PDF |
+| `favicon.ico` et `favicon-48.png` | ICO, et PNG 48 × 48 | icône de l'onglet |
 | `apple-touch-icon.png` | PNG 180 × 180 | icône sur l'écran d'accueil d'un iPhone |
 | `og-image.jpg` | JPG 1200 × 630 | image affichée quand on partage le lien (WhatsApp, Facebook) |
 
@@ -727,7 +727,7 @@ Fenêtre de navigation privée sur https://composeur-jj.vercel.app :
 - [ ] En-tête : « ← j-jtraiteur.fr » (lien vers le site), logo au centre,
   téléphone à droite. En rechargeant la page, **rien ne bouge** quand le
   numéro apparaît. Sur téléphone : « ← Le site » et une icône de téléphone.
-- [ ] L'onglet affiche l'icône J&J (si `favicon-32.png` est déposé).
+- [ ] L'onglet affiche l'icône J&J.
 
 **Confirmation** (composer et envoyer un menu avec votre email)
 - [ ] « Merci … ! » et « Jessica et Jérôme ont reçu votre menu et vous

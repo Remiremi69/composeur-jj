@@ -114,7 +114,7 @@ export async function buildPdf(recap: RecapData, options: PdfOptions): Promise<U
   // En-tête : logo (intégré au code) ou nom en texte.
   if (LOGO_PNG_BASE64) {
     const logo = await doc.embedPng(LOGO_PNG_BASE64)
-    const scaled = logo.scaleToFit(180, 56)
+    const scaled = logo.scaleToFit(180, 72)
     page.drawImage(logo, { x: (W - scaled.width) / 2, y: y - scaled.height, width: scaled.width, height: scaled.height })
     y -= scaled.height + 26
   } else {

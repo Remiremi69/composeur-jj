@@ -33,7 +33,7 @@ export function emailLayout(input: EmailLayoutInput): string {
   const { brand } = input
   const logo = logoUrl(brand)
   const header = logo
-    ? `<img src="${escapeHtml(logo)}" alt="J&amp;J Traiteur" width="160" style="display:block;margin:0 auto;border:0;height:auto;max-width:160px">`
+    ? `<img src="${escapeHtml(logo)}" alt="J&amp;J Traiteur" width="96" height="96" style="display:block;margin:0 auto;border:0;width:96px;height:96px">`
     : `<p style="margin:0;font-family:${EMAIL_SERIF};font-size:24px;color:${COLORS.slate}">J&amp;J Traiteur</p>`
 
   const contact = [
