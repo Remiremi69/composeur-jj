@@ -17,5 +17,17 @@ export function appUrl(): string {
   return (configured || window.location.origin).replace(/\/+$/, '')
 }
 
+// Conditions de mariage (site vitrine) : acomptes, nombre d'invités, service,
+// matériel. Même adresse côté serveur : supabase/functions/_shared/brand.ts
+// (tests/brand.test.ts vérifie qu'elles concordent).
+export const CONDITIONS_URL = 'https://j-jtraiteur.fr/conditions-mariage'
+
+// Rappel des conditions (mêmes textes côté serveur : _shared/brand.ts).
+export const GOOD_TO_KNOW = [
+  'Nombre définitif d’invités et choix du menu : à confirmer 20 jours avant le mariage.',
+  'Acomptes : 30 % à la signature, 30 % un mois avant le mariage, le solde le lendemain.',
+]
+export const PRICE_TAX = 'TTC (TVA 10 %)'
+
 // Prise de rendez-vous en ligne (Calendly…). Absente : bouton « Nous appeler ».
 export const BOOKING_URL = (import.meta.env.VITE_BOOKING_URL as string | undefined) || null

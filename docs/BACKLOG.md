@@ -22,6 +22,14 @@ Points identifiés, à traiter dans un lot ultérieur.
   revenir en arrière. À retirer par une migration une fois le lot 5 validé.
   *(Noté au lot 5.)*
 
+## Prix
+
+- **Majoration du menu selon le nombre de convives** (conditions de mariage
+  de J&J). Le prix par personne est aujourd'hui le même quel que soit le
+  nombre de convives : l'estimation est donc trop basse pour les petits
+  mariages. À intégrer dans `computeEstimate()` (site, emails, PDF, fiche)
+  dès que J&J fournit la grille. *(Noté au lot 6.)*
+
 ## Interface
 
 - **OptionsPage : titres des catégories d'options à passer en données.**

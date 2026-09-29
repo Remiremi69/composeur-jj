@@ -68,8 +68,8 @@ export default function MenuView({
       {(options.length > 0 || optionsEditTo) && (
         <section className="mt-8 text-center">
           <h2 className="text-xs uppercase tracking-[0.2em] text-muted">
-            Vos options
-            {optionsEditTo && <EditLink to={optionsEditTo} title="Vos options" />}
+            Vos petits plus
+            {optionsEditTo && <EditLink to={optionsEditTo} title="Vos petits plus" />}
           </h2>
           {options.length > 0 ? (
             <ul className="mt-3 flex flex-col gap-2">
@@ -83,7 +83,7 @@ export default function MenuView({
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm text-muted">Aucune option choisie.</p>
+            <p className="mt-2 text-sm text-muted">Aucun petit plus choisi.</p>
           )}
         </section>
       )}

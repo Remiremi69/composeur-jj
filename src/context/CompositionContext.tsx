@@ -70,6 +70,8 @@ interface CompositionContextValue {
   removeItem: (itemId: string) => void
   optionIds: string[]
   toggleOption: (optionId: string) => void
+  // Remplace la liste (options exclusives, options devenues sans objet)
+  replaceOptionIds: (ids: string[]) => void
   // Horodatage (horloge du navigateur) du début de la composition, envoyé
   // avec la soumission pour écarter les robots trop rapides.
   startedAt: number | null
@@ -285,6 +287,8 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const replaceOptionIds = useCallback((ids: string[]) => setOptionIds(ids), [])
+
   const toggleItem = useCallback((step: Step, stepItems: Item[], item: Item) => {
     setSelections((prev) => toggleSelection(step, stepItems, prev, item))
   }, [])
@@ -380,6 +384,7 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
       removeItem,
       optionIds,
       toggleOption,
+      replaceOptionIds,
       startedAt,
       currentStep,
       setCurrentStep,
@@ -409,6 +414,7 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
       removeItem,
       optionIds,
       toggleOption,
+      replaceOptionIds,
       startedAt,
       currentStep,
       setCurrentStep,

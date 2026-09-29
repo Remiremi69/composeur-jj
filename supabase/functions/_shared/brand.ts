@@ -17,7 +17,15 @@ export const BRAND = {
   name: 'J&J Traiteur',
   siteUrl: 'https://j-jtraiteur.fr', // site vitrine
   siteLabel: 'j-jtraiteur.fr',
+  conditionsUrl: 'https://j-jtraiteur.fr/conditions-mariage', // cf. src/config/brand.ts
+  conditionsLabel: 'j-jtraiteur.fr/conditions-mariage',
   siret: '815 186 382 00017',
+  // Rappel des conditions de mariage (récap, email du couple, PDF).
+  goodToKnow: [
+    'Nombre définitif d’invités et choix du menu : à confirmer 20 jours avant le mariage.',
+    'Acomptes : 30 % à la signature, 30 % un mois avant le mariage, le solde le lendemain.',
+  ],
+  priceTax: 'TTC (TVA 10 %)',
 } as const
 
 // Coordonnées lues dans les secrets de la fonction.

@@ -84,6 +84,11 @@ export const options: Option[] = [
   { id: 'o-inactive', slug: 'vieille', category: 'en-cas', name: 'Ancienne option', description: null, price: 10, price_unit: 'forfait', position: 3, is_active: false },
   { id: 'o-demande', slug: 'buffet-gateaux', category: 'dessert', name: 'Buffet des gâteaux', description: null, price: null, price_unit: 'forfait', position: 4, is_active: true },
   { id: 'o-offert', slug: 'offert', category: 'services', name: 'Mise en place', description: null, price: 0, price_unit: 'forfait', position: 5, is_active: true },
+  // Options rattachées à une étape, exclusives (comme la mise en place du brunch)
+  { id: 'o-install', slug: 'install', category: 'cocktail', name: 'Installation', description: null, price: 150, price_unit: 'forfait', position: 6, is_active: true, exclusive_group: 'mise-en-place' },
+  { id: 'o-service', slug: 'service', category: 'cocktail', name: 'Installation et service', description: null, price: 300, price_unit: 'forfait', position: 7, is_active: true, exclusive_group: 'mise-en-place' },
+  // Rattachée à une étape sans aucun choix dans le menu valide
+  { id: 'o-hors', slug: 'hors', category: 'hors-formule', name: 'Présentation spéciale', description: null, price: 2, price_unit: 'par_personne', position: 8, is_active: true },
 ]
 
 export const catalog: Catalog = { formules: [signature, ancienne], steps, items, options }

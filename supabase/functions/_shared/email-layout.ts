@@ -65,7 +65,7 @@ ${input.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opaci
       <tr><td align="center" style="padding:22px 12px 0;font-family:${EMAIL_FONT};font-size:13px;line-height:1.7;color:${COLORS.slate}">
         <p style="margin:0;font-weight:bold">${BRAND.name}</p>
         <p style="margin:0">${contact}</p>
-        <p style="margin:6px 0 0;font-size:12px">SIRET ${BRAND.siret}</p>
+        <p style="margin:6px 0 0;font-size:12px"><a href="${BRAND.conditionsUrl}" style="color:${COLORS.slate}">Nos conditions de mariage</a> &nbsp;·&nbsp; SIRET ${BRAND.siret}</p>
         ${input.footerNoteHtml ? `<p style="margin:14px 0 0;font-size:12px">${input.footerNoteHtml}</p>` : ''}
       </td></tr>
     </table>

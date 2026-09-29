@@ -24,6 +24,7 @@ import MenuView from '../components/MenuView'
 import PriceSummary from '../components/PriceSummary'
 import { MenuSkeleton } from '../components/Skeletons'
 import { guestBracket, track } from '../lib/tracking'
+import { CONDITIONS_URL, GOOD_TO_KNOW } from '../config/brand'
 
 // Clé publique Cloudflare Turnstile : le widget n'apparaît que si elle est définie.
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
@@ -95,8 +96,10 @@ export default function RecapPage() {
   const needsTurnstile = Boolean(TURNSTILE_SITE_KEY)
 
   // Une section par étape, avec un lien « Modifier » vers son écran.
-  const sections = buildScreens(formule, steps).flatMap((screen) =>
+  // Les étapes sans choix (fromage…) sont dans « Déjà compris », pas ici.
+  const sections = buildScreens(formule, steps, options).flatMap((screen) =>
     screen.steps
+      .filter((step) => step.rule_type !== 'free')
       .map((step) => ({
         title: step.title,
         editTo: `/composer/${screen.slug}`,
@@ -214,6 +217,25 @@ export default function RecapPage() {
         {/* Estimation : prix par personne en grand, détail dépliable */}
         <div className="mt-10">
           <PriceSummary estimate={estimate} guestCount={couple.guestCount} formuleName={formule?.name} />
+        </div>
+
+        {/* Bon à savoir : rappel des conditions de mariage */}
+        <div className="mt-4 rounded-card border border-lin bg-fond px-5 py-4 text-sm text-ink">
+          <p className="font-bold text-slate">Bon à savoir</p>
+          <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
+            {GOOD_TO_KNOW.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <a
+            href={CONDITIONS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-block font-bold text-slate underline-offset-4 hover:underline"
+          >
+            Toutes nos conditions de mariage
+            <span className="sr-only"> (s’ouvre dans un nouvel onglet)</span>
+          </a>
         </div>
 
         {/* Ce qui est toujours compris */}
@@ -365,6 +387,19 @@ export default function RecapPage() {
                 </a>
               </>
             )}
+          </p>
+          <p className="text-center text-xs text-muted">
+            Acomptes, nombre définitif d’invités, service, matériel :{' '}
+            <a
+              href={CONDITIONS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-ink"
+            >
+              nos conditions de mariage
+              <span className="sr-only"> (s’ouvre dans un nouvel onglet)</span>
+            </a>
+            .
           </p>
           <button
             type="button"

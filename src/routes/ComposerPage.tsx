@@ -9,6 +9,7 @@ import {
   screenStatus,
   type Screen,
 } from '@core/journey'
+import { toggleOptionId } from '@core/options'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { evaluateStep, itemsForStep } from '../lib/rules'
@@ -38,17 +39,17 @@ function maxMessage(step: Step): string {
 export function ComposerEntry() {
   const navigate = useNavigate()
   const { couple, formuleId, currentStep, selections } = useComposition()
-  const { formules, steps, items, loading } = useCatalog()
+  const { formules, steps, items, options, loading } = useCatalog()
 
   useEffect(() => {
     if (!couple) return void navigate('/', { replace: true })
     if (!formuleId) return void navigate('/formule', { replace: true })
     if (loading) return
     const formule = formules.find((f) => f.id === formuleId) ?? null
-    const screens = buildScreens(formule, steps)
+    const screens = buildScreens(formule, steps, options)
     if (screens.length === 0) return void navigate('/options', { replace: true })
     navigate(`/composer/${entryScreenSlug(screens, steps, currentStep, items, selections)}`, { replace: true })
-  }, [couple, formuleId, loading, formules, steps, items, currentStep, selections, navigate])
+  }, [couple, formuleId, loading, formules, steps, items, options, currentStep, selections, navigate])
 
   return <ScreenSkeleton />
 }
@@ -66,7 +67,7 @@ export default function ComposerPage() {
     setQuantity,
     removeItem,
     optionIds,
-    toggleOption,
+    replaceOptionIds,
     setCurrentStep,
   } = useComposition()
   const { formules, steps, items, options, loading, error } = useCatalog()
@@ -76,7 +77,7 @@ export default function ComposerPage() {
   const previousSlug = useRef<string | undefined>(undefined)
 
   const formule = useMemo(() => formules.find((f) => f.id === formuleId) ?? null, [formules, formuleId])
-  const screens = useMemo(() => buildScreens(formule, steps), [formule, steps])
+  const screens = useMemo(() => buildScreens(formule, steps, options), [formule, steps, options])
   const decision =
     !loading && screens.length > 0 ? resolveComposerRoute(screens, slug, items, selections) : null
 
@@ -115,7 +116,7 @@ export default function ComposerPage() {
       if (!isSelected) {
         const status = evaluateStep(step, stepItems, selections)
         const full =
-          (step.rule_type === 'pick_range' && !status.canAddMore) ||
+          (step.rule_type === 'pick_range' && step.rule_max !== 1 && !status.canAddMore) ||
           (step.rule_type === 'exact_count' && status.current >= (step.rule_min ?? 0))
         if (full) return toast.show(maxMessage(step))
       }
@@ -210,7 +211,7 @@ export default function ComposerPage() {
                 optionIds={optionIds}
                 onToggle={handleToggle}
                 onInfo={setDetailItem}
-                onToggleOption={toggleOption}
+                onToggleOption={(id) => replaceOptionIds(toggleOptionId(options, optionIds, id))}
               />
             ))}
           </motion.div>
@@ -237,6 +238,7 @@ export default function ComposerPage() {
       <ItemDetailSheet
         item={detailItem}
         selected={detailItem ? (selections[detailItem.id] ?? 0) > 0 : false}
+        included={detailStep?.rule_type === 'free'}
         onToggle={() => {
           if (detailItem && detailStep) handleToggle(detailStep, itemsForStep(detailStep, items), detailItem)
         }}
@@ -285,7 +287,34 @@ function StepSection({
         </div>
       )}
 
-      {items.some((i) => i.category) ? (
+      {step.rule_type === 'free' ? (
+        // Rien à choisir : tout est servi, présenté comme compris.
+        <>
+          <p className="mt-4 flex items-start gap-2 rounded-card border border-lin bg-fond px-4 py-3 text-sm text-ink">
+            <span className="text-bronze" aria-hidden="true">
+              ✓
+            </span>
+            <span>
+              <strong>Compris dans votre formule.</strong>{' '}
+              {items.length > 1
+                ? 'Tout est servi à vos convives : rien à choisir ici.'
+                : 'Servi à tous vos convives : rien à choisir ici.'}
+            </span>
+          </p>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {items.map((item) => (
+              <DishCard
+                key={item.id}
+                item={item}
+                included
+                selected={false}
+                onToggle={() => {}}
+                onInfo={() => onInfo(item)}
+              />
+            ))}
+          </div>
+        </>
+      ) : items.some((i) => i.category) ? (
         <CategoryAccordion
           items={items}
           selections={selections}
@@ -309,6 +338,13 @@ function StepSection({
       {options.length > 0 && (
         <div className="mt-6">
           <h3 className="mb-3 text-sm font-medium text-ink">En supplément</h3>
+          {/* Sur une étape avec des choix, les options suivent un choix
+              (ex. la mise en place du brunch n'existe que si un brunch est choisi). */}
+          {step.rule_type !== 'free' && !items.some((it) => (selections[it.id] ?? 0) > 0) ? (
+            <p className="rounded-card border border-dashed border-lin px-4 py-3 text-sm text-muted">
+              Faites d’abord votre choix ci-dessus pour voir ces possibilités.
+            </p>
+          ) : (
           <div className="flex flex-col gap-3">
             {options.map((o) => (
               <OptionToggle
@@ -319,6 +355,7 @@ function StepSection({
               />
             ))}
           </div>
+          )}
         </div>
       )}
     </section>

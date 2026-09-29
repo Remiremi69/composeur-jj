@@ -160,7 +160,7 @@ export async function buildPdf(recap: RecapData, options: PdfOptions): Promise<U
   }
 
   if (recap.options.length) {
-    sectionTitle('Options')
+    sectionTitle('Vos petits plus')
     for (const o of recap.options) {
       const label = optionPriceLabel({ price: o.price, price_unit: o.priceUnit })
       ensure(20)
@@ -195,13 +195,19 @@ export async function buildPdf(recap: RecapData, options: PdfOptions): Promise<U
   y -= 28
   center(`${eur(estimate.perPersonAllIn)} par personne`, serifBold, 22, slate)
   y -= 16
-  center('tout compris', sans, 10, slate)
+  center(`tout compris, ${BRAND.priceTax}`, sans, 10, slate)
   y -= 20
-  const forfait = estimate.forfaitOptions > 0 ? `, dont ${eur(estimate.forfaitOptions)} d’options au forfait` : ''
+  const forfait = estimate.forfaitOptions > 0 ? `, dont ${eur(estimate.forfaitOptions)} de petits plus au forfait` : ''
   center(`Soit ${eur(estimate.total)} au total pour ${recap.guestCount} convives${forfait}`, sans, 10, slate)
   y -= 18
   center('Estimation indicative — votre traiteur J&J vous confirmera le devis définitif.', sans, 9, slate)
-  y -= 10
+  y -= 22
+  // Rappel des conditions de mariage
+  for (const line of BRAND.goodToKnow) {
+    ensure(14)
+    center(line, sans, 9, ink)
+    y -= 13
+  }
 
   // Informations de recontact : uniquement dans le PDF joint aux emails.
   const c = recap.contact
@@ -235,7 +241,7 @@ export async function buildPdf(recap: RecapData, options: PdfOptions): Promise<U
   ]
     .filter(Boolean)
     .join('  ·  ')
-  const legal = `${BRAND.name} — SIRET ${BRAND.siret}`
+  const legal = `${BRAND.name} — SIRET ${BRAND.siret} — Conditions : ${BRAND.conditionsLabel}`
   const pages = doc.getPages()
   pages.forEach((p, i) => {
     p.drawLine({ start: { x: margin, y: 52 }, end: { x: W - margin, y: 52 }, thickness: 0.5, color: lin })

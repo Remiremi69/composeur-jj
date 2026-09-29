@@ -988,6 +988,133 @@ delete from public.submission_log;
 
 ---
 
+## Lot 6 — Fromage compris, « Les petits plus », photos, brunch, conditions
+
+### Ce qui change
+
+- **Fromage** : les deux fromages sont compris (plus de choix à faire).
+  L'écran Fromage reste, présente les deux fromages comme « Compris » et
+  propose toujours les présentations en supplément (plateau, pyramide).
+- **« Les options » deviennent « Les petits plus »** partout où les couples
+  les voient (page, récap, emails, PDF, relance).
+- **Photos** des étapes Format et Cocktail (10 photos Unsplash libres de
+  droits, crédits dans `docs/PHOTOS.md`).
+- **Brunch du lendemain** : nouvelle étape facultative (0 ou 1 format) dans
+  les 3 formules, 7 formats (Petit déj 20 €, les autres 35 € / pers), et la
+  mise en place : buffet livré (compris), installation (150 €) ou
+  installation et service (300 €) — un seul choix possible, proposé
+  seulement si un brunch est choisi. Les 3 anciennes formules brunch de
+  « Les petits plus » sont désactivées.
+
+- **Conditions de mariage** (`https://j-jtraiteur.fr/conditions-mariage`) :
+  lien dans le récap, la confirmation, les emails et le PDF ; mention
+  « TTC (TVA 10 %) » ; encart « Bon à savoir » (nombre d'invités à
+  confirmer 20 jours avant, acomptes) ; personnel « 1 pour 45 convives » ;
+  deux nouveaux petits plus : enlèvement des bouteilles vides (60 €) et des
+  ordures (150 €).
+
+Prix du brunch : par personne, calculé sur le nombre de convives du mariage
+(J&J l'ajuste avec le couple), et compté dans le prix par personne affiché.
+
+**Une modification de schéma** (colonne `options.exclusive_group`),
+**pas de nouveau secret, pas de nouvelle variable.**
+
+---
+
+### Étape 1 — Vérifier la CLI
+
+```bash
+cd C:\Users\mormo\Desktop\composeur-jj
+```
+```bash
+npx supabase migration list
+```
+
+Attendu : en **Local** uniquement, quatre nouvelles migrations :
+`20260929100000`, `20260929180000`, `20260929190000`, `20260929200000`.
+
+---
+
+### Étape 2 — Appliquer les migrations
+
+```bash
+npx supabase db push --dry-run
+```
+
+Attendu : exactement ces quatre fichiers :
+`20260929100000_fromage_compris.sql`,
+`20260929180000_photos_format_cocktail.sql`,
+`20260929190000_brunch.sql`,
+`20260929200000_conditions.sql`. Puis :
+
+```bash
+npx supabase db push
+```
+
+> Entre cette étape et l'étape 4, le site actuel affiche déjà le fromage
+> sans choix et une étape Brunch (sans les photos ni la mise en place
+> exclusive). Enchaînez les étapes 2 à 4 sans pause.
+
+---
+
+### Étape 3 — Déployer les fonctions
+
+```bash
+npx supabase functions deploy submit-composition
+```
+```bash
+npx supabase functions deploy get-draft
+```
+```bash
+npx supabase functions deploy send-draft-reminders --no-verify-jwt
+```
+```bash
+npx supabase functions deploy menu-pdf
+```
+
+(Validation des options exclusives et du brunch, fromage dans « Déjà
+compris », « petits plus » dans les emails et le PDF.)
+
+---
+
+### Étape 4 — Déployer le site (sans la redirection)
+
+```bash
+git push origin HEAD~1:master
+```
+
+Attendez **Ready** sur Vercel.
+
+---
+
+### Étape 5 — Checklist de tests en production
+
+- [ ] Format et Cocktail : les photos s'affichent sur les cartes.
+- [ ] Fromage : les deux fromages marqués « Compris », bandeau « Compris dans
+  votre formule », présentations en supplément toujours cochables.
+- [ ] Brunch : 7 formats avec leur prix ; « Étape suivante » possible sans
+  brunch. Sans brunch, la mise en place affiche « Faites d'abord votre
+  choix ». Avec un brunch : cocher « Installation » puis « Installation et
+  service » → une seule reste cochée. Retirer le brunch → la mise en place
+  est retirée.
+- [ ] Page « Les petits plus » : plus de formules brunch.
+- [ ] Récap, emails, PDF : « Vos petits plus », section « Brunch du
+  lendemain », fromages dans « Déjà compris ».
+- [ ] Fiche admin : le brunch et sa mise en place apparaissent.
+- [ ] Récap : « tout compris, TTC (TVA 10 %) », encart « Bon à savoir »,
+  lien « Toutes nos conditions de mariage » qui ouvre la page de J&J.
+- [ ] Formules : « 1 membre du personnel de service pour 45 convives ».
+- [ ] Petits plus : enlèvement des bouteilles vides (60 €) et des ordures
+  (150 €).
+- [ ] Email du couple et PDF : mention TTC et « Bon à savoir » ; pied des
+  emails et du PDF : lien vers les conditions.
+
+### Étape 6 — Nettoyage
+
+Marquez vos envois de test comme test (fiche admin).
+
+---
+
 ## Ajouter ou changer le logo (à tout moment)
 
 1. **Déposer** les fichiers dans `public/brand/` (noms et formats : lot 4,

@@ -88,6 +88,9 @@ describe('PDF', () => {
     expect(text).toContain('contact@exemple.fr')
     expect(text).toContain('j-jtraiteur.fr')
     expect(text).toContain('SIRET 815 186 382 00017')
+    expect(text).toContain('Conditions : j-jtraiteur.fr/conditions-mariage')
+    expect(text).toContain('tout compris, TTC (TVA 10 %)')
+    expect(text).toContain('à confirmer 20 jours avant le mariage')
   })
 
   it('clean() ne remplace que les caractères hors WinAnsi', () => {

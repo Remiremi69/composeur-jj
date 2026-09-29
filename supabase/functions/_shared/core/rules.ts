@@ -83,7 +83,11 @@ export function evaluateStep(
         satisfied: current >= min && current <= max,
         canAddMore: current < max,
         label:
-          min === max
+          min === 0 && max === 1
+            ? current === 1
+              ? 'Votre choix est fait'
+              : `Facultatif : 1 ${unit} au choix`
+            : min === max
             ? `${current} / ${max} ${unit}`
             : `${current} ${unit} choisi${current > 1 ? 's' : ''} (${min} à ${max})`,
       }
@@ -123,6 +127,15 @@ export function toggleSelection(
     }
     case 'pick_range': {
       const max = step.rule_max ?? Number.MAX_SAFE_INTEGER
+      // Un seul choix possible (ex. brunch : 0 ou 1) : remplacement direct,
+      // comme pick_one, mais on peut aussi tout décocher.
+      if (max === 1) {
+        stepItems.forEach((it) => {
+          delete next[it.id]
+        })
+        if (!isSelected) next[item.id] = 1
+        return next
+      }
       const count = stepItems.reduce(
         (n, it) => n + (quantity(next, it.id) > 0 ? 1 : 0),
         0,

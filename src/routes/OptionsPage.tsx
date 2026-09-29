@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { buildScreens } from '@core/journey'
+import { toggleOptionId } from '@core/options'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { computeEstimate } from '../lib/pricing'
@@ -26,7 +27,7 @@ export default function OptionsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const fromRecap = (location.state as { fromRecap?: boolean } | null)?.fromRecap === true
-  const { couple, formuleId, selections, optionIds, toggleOption, setCurrentStep } = useComposition()
+  const { couple, formuleId, selections, optionIds, replaceOptionIds, setCurrentStep } = useComposition()
   const { formules, steps, items, options, loading, error } = useCatalog()
 
   useEffect(() => {
@@ -57,15 +58,15 @@ export default function OptionsPage() {
   const formule = formules.find((f) => f.id === formuleId) ?? null
   const estimate = computeEstimate(formule, items, selections, options, optionIds, couple.guestCount)
   // « Retour » : la DERNIÈRE étape de composition.
-  const screens = buildScreens(formule, steps)
+  const screens = buildScreens(formule, steps, options)
   const lastScreen = screens[screens.length - 1]
 
   return (
     <div className="flex w-full flex-1 flex-col">
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 pb-6 pt-10">
         <p className="text-xs uppercase tracking-[0.2em] text-slate">Dernière étape</p>
-        <h1 className="mt-2 text-3xl leading-tight text-slate">Les options</h1>
-        <p className="mt-2 text-muted">
+        <h1 className="mt-2 text-3xl leading-tight text-slate">Les petits plus</h1>
+        <p className="mt-3 text-lg leading-relaxed text-ink">
           Quelques touches en plus pour prolonger la fête — entièrement facultatives.
         </p>
 
@@ -82,7 +83,7 @@ export default function OptionsPage() {
                     key={o.id}
                     option={o}
                     selected={optionIds.includes(o.id)}
-                    onToggle={() => toggleOption(o.id)}
+                    onToggle={() => replaceOptionIds(toggleOptionId(options, optionIds, o.id))}
                   />
                 ))}
             </div>

@@ -22,7 +22,7 @@ export interface ReminderData {
 // Pages du parcours qui ne sont pas des étapes de composition.
 const PAGE_LABELS: Record<string, string> = {
   formule: 'le choix de la formule',
-  options: 'les options',
+  options: 'les petits plus',
   recap: 'le récapitulatif',
 }
 

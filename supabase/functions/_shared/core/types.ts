@@ -52,6 +52,7 @@ export interface Option {
   price_unit: 'par_personne' | 'forfait'
   position: number
   is_active: boolean | null
+  exclusive_group?: string | null // options qui s'excluent (même groupe)
 }
 
 export interface Inclusion {

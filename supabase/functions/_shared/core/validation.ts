@@ -3,6 +3,7 @@
 // règles servent au front pour prévenir le couple le plus tôt possible.
 // Tous les messages sont en français et destinés à être affichés tels quels.
 
+import { isOptionAvailable } from './options.ts'
 import { evaluateStep, itemsForStep, resolveStep } from './rules.ts'
 import type { Catalog, Selections, Step } from './types.ts'
 
@@ -298,7 +299,17 @@ export function validateComposition(
       const option = optionById.get(id)
       if (!option || option.is_active !== true) {
         errors.push("Une option choisie n'est plus disponible.")
+      } else if (selections && !isOptionAvailable(option, catalog.steps, catalog.items, selections)) {
+        // Ex. une mise en place de brunch sans brunch choisi.
+        errors.push(`« ${option.name} » n'est possible qu'avec un choix dans l'étape correspondante.`)
       }
+    }
+    // Options exclusives : une seule par groupe.
+    const groups = (rawOptionIds as string[])
+      .map((id) => optionById.get(id)?.exclusive_group)
+      .filter((g): g is string => Boolean(g))
+    if (new Set(groups).size !== groups.length) {
+      errors.push('Deux options incompatibles ont été choisies : gardez-en une seule.')
     }
   }
 

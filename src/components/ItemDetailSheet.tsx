@@ -11,11 +11,13 @@ import DishPlaceholder from './DishPlaceholder'
 export default function ItemDetailSheet({
   item,
   selected,
+  included = false,
   onToggle,
   onClose,
 }: {
   item: Item | null
   selected: boolean
+  included?: boolean // étape sans choix : pas de bouton Choisir / Retirer
   onToggle: () => void
   onClose: () => void
 }) {
@@ -121,20 +123,29 @@ export default function ItemDetailSheet({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onToggle()
-                  onClose()
-                }}
-                className={`mt-2 rounded-card px-6 py-3 font-semibold transition-colors ${
-                  selected
-                    ? 'border border-lin text-ink hover:border-slate'
-                    : 'bg-slate text-lin hover:bg-slate-deep'
-                }`}
-              >
-                {selected ? 'Retirer' : 'Choisir'}
-              </button>
+              {included ? (
+                <p className="mt-2 rounded-card bg-lin-light px-4 py-3 text-center text-sm font-bold text-ink">
+                  <span className="text-bronze" aria-hidden="true">
+                    ✓{' '}
+                  </span>
+                  Compris dans votre formule
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggle()
+                    onClose()
+                  }}
+                  className={`mt-2 rounded-card px-6 py-3 font-semibold transition-colors ${
+                    selected
+                      ? 'border border-lin text-ink hover:border-slate'
+                      : 'bg-slate text-lin hover:bg-slate-deep'
+                  }`}
+                >
+                  {selected ? 'Retirer' : 'Choisir'}
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>

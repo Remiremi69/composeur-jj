@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Estimate } from '@core/pricing'
 import { formatPrice } from '../lib/format'
+import { PRICE_TAX } from '../config/brand'
 
 // Estimation : prix par personne (toutes options comprises) en grand,
 // détail dépliable (formule, suppléments, options) et total pour N convives.
@@ -23,7 +24,7 @@ export default function PriceSummary({
         {formatPrice(estimate.perPersonAllIn)}
         <span className="ml-1 text-base font-normal text-muted">par personne</span>
       </p>
-      <p className="text-xs text-muted">toutes options comprises</p>
+      <p className="text-xs text-muted">tout compris, {PRICE_TAX}</p>
 
       <button
         type="button"
@@ -44,7 +45,7 @@ export default function PriceSummary({
             <Line label="Suppléments des plats" value={`+ ${formatPrice(estimate.supplementsPerPerson)} / pers`} />
           )}
           {estimate.optionsPerPerson > 0 && (
-            <Line label="Options par personne" value={`+ ${formatPrice(estimate.optionsPerPerson)} / pers`} />
+            <Line label="Petits plus par personne" value={`+ ${formatPrice(estimate.optionsPerPerson)} / pers`} />
           )}
           <div className="my-1 h-px bg-lin" />
           <Line
@@ -53,7 +54,7 @@ export default function PriceSummary({
             strong
           />
           {estimate.forfaitOptions > 0 && (
-            <Line label="dont options au forfait" value={formatPrice(estimate.forfaitOptions)} />
+            <Line label="dont petits plus au forfait" value={formatPrice(estimate.forfaitOptions)} />
           )}
         </dl>
       )}

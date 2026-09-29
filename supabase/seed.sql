@@ -223,3 +223,98 @@ WHERE "public"."steps"."slug" = v.slug;
 UPDATE "public"."steps"
 SET "group_slug" = 'assiette', "group_title" = 'Votre assiette', "group_nav_title" = 'Assiette'
 WHERE "slug" IN ('plat', 'feculent', 'legume');
+
+-- Lot fromage : étape sans choix (cf. migration 20260929100000_fromage_compris.sql)
+update public.steps
+   set rule_type = 'free', rule_min = null, rule_max = null,
+       subtitle = 'Deux fromages servis à tous vos convives : rien à choisir. Choisissez seulement, si vous le souhaitez, leur présentation.'
+ where slug = 'fromage';
+
+-- Photos Format et Cocktail : cf. migration 20260929180000_photos_format_cocktail.sql
+update public.items i
+   set photo_url = v.url
+  from (values
+    ('format',   'Service à table',            '/plats/service-a-table.webp'),
+    ('format',   'Banquet — service au plat',  '/plats/banquet.webp'),
+    ('format',   'Buffet convivial',           '/plats/buffet.webp'),
+    ('cocktail', 'Punch façon mojito',         '/plats/punch-mojito.webp'),
+    ('cocktail', 'Mojito « J&J »',             '/plats/mojito.webp'),
+    ('cocktail', 'Pim''s',                     '/plats/pimms.webp'),
+    ('cocktail', 'Spritz',                     '/plats/spritz.webp'),
+    ('cocktail', 'Bélini',                     '/plats/bellini.webp'),
+    ('cocktail', 'Soupe champenoise',          '/plats/soupe-champenoise.webp'),
+    ('cocktail', 'Cocktail sans alcool',       '/plats/sans-alcool.webp')
+  ) as v (step_slug, item_name, url)
+  join public.steps s on s.slug = v.step_slug
+ where i.step_id = s.id
+   and i.name = v.item_name;
+
+-- Brunch du lendemain : cf. migration 20260929190000_brunch.sql (rejouée ici car
+-- le seed insère formules et options APRÈS les migrations).
+-- 2. Étape ---------------------------------------------------------------
+insert into public.steps (slug, title, subtitle, position, rule_type, rule_min, rule_max, unit_label, nav_title)
+values (
+  'brunch',
+  'Brunch du lendemain',
+  'Facultatif : prolongez la fête le lendemain. Prix par personne, estimé sur le nombre de convives du mariage : J&J l’ajuste avec vous. Buffet livré compris ; installation et service en supplément.',
+  13, 'pick_range', 0, 1, 'brunch', 'Brunch'
+)
+on conflict (slug) do update
+  set title = excluded.title, subtitle = excluded.subtitle, position = excluded.position,
+      rule_type = excluded.rule_type, rule_min = excluded.rule_min, rule_max = excluded.rule_max,
+      unit_label = excluded.unit_label, nav_title = excluded.nav_title;
+
+-- 3. Formats (prix par personne dans « supplement ») ------------------------
+insert into public.items (step_id, name, description, price, price_unit, supplement, labels, allergens, is_active, position)
+select s.id, v.name, v.description, 0, 'par_personne', v.prix, v.labels, '{}', true, v.pos
+  from public.steps s,
+       (values
+         (1, 'Le Petit déj', 'Café, thé, lait, infusions, cappuccino, beurre, pain, croissants, pains au chocolat et jus d’orange pressé.', 20.00, '{V}'::text[]),
+         (2, 'Le Mâchon', 'Le Petit déj, avec charcuterie et fromage : le brunch à la lyonnaise.', 35.00, '{}'::text[]),
+         (3, 'Le Bord de mer', 'Le Petit déj, avec saumon gravlax, crevettes, huîtres, tzatziki de concombre, penne au crabe, fromage et salade de fruits frais.', 35.00, '{}'::text[]),
+         (4, 'Un Mâchon au bord de mer', 'Le Petit déj, le Mâchon et le Bord de mer réunis.', 35.00, '{}'::text[]),
+         (5, 'L’Italien', 'Penne au parmesan et coppa (dans la meule), salade tomate-mozzarella, légumes grillés, crostini tapenade et anchoïade, tiramisu (café, pistache ou fruits rouges).', 35.00, '{}'::text[]),
+         (6, 'L’Anglais', 'Le Petit déj, avec fish & chips.', 35.00, '{}'::text[]),
+         (7, 'L’Américain', 'Le Petit déj, avec burger et cheesecake.', 35.00, '{}'::text[])
+       ) as v (pos, name, description, prix, labels)
+ where s.slug = 'brunch'
+   and not exists (select 1 from public.items i where i.step_id = s.id and i.name = v.name);
+
+-- 4. Mise en place (options rattachées à l'étape, exclusives) ---------------
+insert into public.options (slug, category, name, description, price, price_unit, position, is_active, exclusive_group)
+values
+  ('brunch-installation', 'brunch', 'Installation : nappage, tables et chaises',
+   'Nous installons le buffet, le nappage, les tables et les chaises. Sans cette option, le buffet est livré.',
+   150.00, 'forfait', 1, true, 'brunch-mise-en-place'),
+  ('brunch-installation-service', 'brunch', 'Installation et service par notre équipe',
+   'L’installation complète, plus le service assuré par notre équipe pendant le brunch.',
+   300.00, 'forfait', 2, true, 'brunch-mise-en-place')
+on conflict (slug) do update
+  set category = excluded.category, name = excluded.name, description = excluded.description,
+      price = excluded.price, price_unit = excluded.price_unit, position = excluded.position,
+      is_active = excluded.is_active, exclusive_group = excluded.exclusive_group;
+
+-- 5. Anciennes options brunch (page « Les petits plus ») : désactivées --------
+update public.options set is_active = false
+ where slug in ('brunch-classique', 'brunch-burger', 'brunch-grand');
+
+-- 6. Étape proposée dans les 3 formules ------------------------------------
+update public.formules
+   set included_steps = array_append(included_steps, 'brunch')
+ where not ('brunch' = any (included_steps));
+
+-- Conditions de mariage : cf. migration 20260929200000_conditions.sql
+update public.inclusions
+   set label = '1 membre du personnel de service pour 45 convives'
+ where label = '1 serveur pour 25 convives';
+
+insert into public.options (slug, category, name, description, price, price_unit, position, is_active)
+values
+  ('enlevement-bouteilles', 'services', 'Enlèvement de vos bouteilles vides',
+   'Nous repartons avec vos bouteilles vides en fin de soirée.', 60.00, 'forfait', 14, true),
+  ('enlevement-ordures', 'services', 'Enlèvement des ordures sur site',
+   'Nous emportons les ordures de la réception : vous n’avez rien à gérer.', 150.00, 'forfait', 15, true)
+on conflict (slug) do update
+  set category = excluded.category, name = excluded.name, description = excluded.description,
+      price = excluded.price, price_unit = excluded.price_unit, position = excluded.position,
+      is_active = excluded.is_active;

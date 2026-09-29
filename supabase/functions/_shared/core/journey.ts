@@ -32,11 +32,19 @@ export function freeSteps(formule: Formule | null, steps: Step[]): Step[] {
   return includedSteps(formule, steps).filter((s) => s.rule_type === 'free')
 }
 
-export function buildScreens(formule: Formule | null, steps: Step[]): Screen[] {
+// Une étape « free » (rien à choisir) n'a pas d'écran, SAUF si des options lui
+// sont rattachées (option.category = slug de l'étape, ex. la présentation du
+// fromage) : l'écran montre alors ce qui est compris, puis les options.
+export function buildScreens(
+  formule: Formule | null,
+  steps: Step[],
+  options: { category: string }[] = [],
+): Screen[] {
+  const withOptions = new Set(options.map((o) => o.category))
   const screens: Screen[] = []
   const groups = new Map<string, Screen>()
   for (const raw of includedSteps(formule, steps)) {
-    if (raw.rule_type === 'free') continue
+    if (raw.rule_type === 'free' && !withOptions.has(raw.slug)) continue
     const step = resolveStep(raw, formule)
     if (step.group_slug) {
       let screen = groups.get(step.group_slug)

@@ -108,6 +108,21 @@ describe('buildScreens', () => {
   })
 })
 
+describe('étape sans choix avec options (fromage)', () => {
+  it('garde son écran si des options lui sont rattachées, toujours valide', () => {
+    const withOptions = buildScreens(formule, steps, [{ category: 'cafe' }])
+    const cafe = withOptions.find((s) => s.slug === 'cafe')
+    expect(cafe).toBeDefined()
+    expect(withOptions.map((s) => s.slug)).toEqual(['format', 'pieces', 'assiette', 'cafe', 'dessert'])
+    expect(screenStatus(cafe!, items, {}).valid).toBe(true)
+  })
+
+  it('sans option rattachée : pas d’écran (encart « Déjà compris » seulement)', () => {
+    expect(buildScreens(formule, steps, [{ category: 'bar-de-nuit' }]).map((s) => s.slug)).not.toContain('cafe')
+    expect(freeSteps(formule, steps).map((s) => s.slug)).toContain('cafe')
+  })
+})
+
 describe('validation des écrans', () => {
   it('un écran groupé n’est valide que si toutes ses sections le sont', () => {
     expect(screenStatus(screens[2], items, { pl1: 1, fe1: 1 }).valid).toBe(false)

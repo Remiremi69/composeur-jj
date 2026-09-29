@@ -3,7 +3,7 @@
 // Hiérarchie des prix (identique au site et au PDF) : prix par personne en
 // avant, total en dessous, plus discret.
 
-import { COLORS, NO_CONTACT, type BrandContact } from '../_shared/brand.ts'
+import { BRAND, COLORS, NO_CONTACT, type BrandContact } from '../_shared/brand.ts'
 import { optionPriceLabel } from '../_shared/core/format.ts'
 import { EMAIL_SERIF, emailLayout } from '../_shared/email-layout.ts'
 import { escapeHtml, singleLine } from '../_shared/html.ts'
@@ -37,7 +37,7 @@ function menuHtml(recap: RecapData): string {
     }
   }
   if (recap.options.length) {
-    html += `<p style="margin:14px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:${MUTED}">Options</p>`
+    html += `<p style="margin:14px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:${MUTED}">Vos petits plus</p>`
     for (const o of recap.options) {
       const label = optionPriceLabel({ price: o.price, price_unit: o.priceUnit })
       html += `<p style="margin:0;font-size:15px;color:${INK}">${escapeHtml(o.name)} (${escapeHtml(label)})</p>`
@@ -65,13 +65,13 @@ export function priceHtml(recap: RecapData): string {
   const { estimate } = recap
   const forfait =
     estimate.forfaitOptions > 0
-      ? `, dont ${escapeHtml(eur(estimate.forfaitOptions))} d’options au forfait`
+      ? `, dont ${escapeHtml(eur(estimate.forfaitOptions))} de petits plus au forfait`
       : ''
   return `
     <div style="margin-top:22px;padding:16px;border:1px solid ${LINE};border-radius:4px;text-align:center">
       <p style="margin:0;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:${MUTED}">Estimation</p>
       <p style="margin:6px 0 0;font-family:${EMAIL_SERIF};font-size:26px;color:${COLORS.slate}"><strong>${escapeHtml(eur(estimate.perPersonAllIn))}</strong>
-        <span style="font-size:14px;color:${MUTED}">par personne, tout compris</span></p>
+        <span style="font-size:14px;color:${MUTED}">par personne, tout compris, ${BRAND.priceTax}</span></p>
       <p style="margin:8px 0 0;font-size:13px;color:${MUTED}">Soit ${escapeHtml(eur(estimate.total))} au total pour ${escapeHtml(recap.guestCount)} convives${forfait}.</p>
     </div>`
 }
@@ -134,6 +134,11 @@ export function coupleEmail(recap: RecapData, ctx: EmailContext = NO_CONTEXT): {
       ${menuHtml(recap)}
       ${includedHtml(recap)}
       ${priceHtml(recap)}
+      <div style="margin-top:14px;padding:12px 16px;background:${COLORS.linLight};border-radius:4px;font-size:13px">
+        <p style="margin:0 0 4px;font-weight:bold;color:${COLORS.slate}">Bon à savoir</p>
+        ${BRAND.goodToKnow.map((l) => `<p style="margin:0">• ${escapeHtml(l)}</p>`).join('')}
+        <p style="margin:6px 0 0"><a href="${BRAND.conditionsUrl}" style="color:${COLORS.slate}">Toutes nos conditions de mariage</a></p>
+      </div>
       ${
         recap.contact
           ? `${h2('Vos informations')}

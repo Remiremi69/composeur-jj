@@ -87,7 +87,16 @@ describe('emails de soumission : prix et recontact', () => {
     expect(perPerson).toBeGreaterThan(-1)
     expect(total).toBeGreaterThan(perPerson)
     expect(html).toContain('par personne, tout compris')
-    expect(html).toContain('dont 250 € d’options au forfait')
+    expect(html).toContain('dont 250 € de petits plus au forfait')
+  })
+
+  it('email du couple : mention TTC et « Bon à savoir » (20 jours, acomptes, conditions)', () => {
+    const html = norm(coupleEmail(recap()).html)
+    expect(html).toContain('TTC (TVA 10 %)')
+    expect(html).toContain('20 jours avant le mariage')
+    expect(html).toContain('Acomptes : 30 % à la signature')
+    expect(html).toContain('Toutes nos conditions de mariage')
+    expect(traiteurEmail(recap()).html).not.toContain('Bon à savoir')
   })
 
   it('encart « Déjà compris dans votre formule », contenu échappé', () => {
@@ -140,6 +149,7 @@ describe('gabarit commun des emails (logo, pied de page, bouton)', () => {
     expect(html).toContain('mailto:contact@exemple.fr')
     expect(html).toContain('https://j-jtraiteur.fr')
     expect(html).toContain('SIRET 815 186 382 00017')
+    expect(html).toContain('href="https://j-jtraiteur.fr/conditions-mariage"')
   })
 
   it('sans adresse du Composeur : nom en texte et pas de bouton', () => {

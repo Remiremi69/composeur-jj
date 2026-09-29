@@ -61,6 +61,8 @@ export function buildRecap(
   const sections: RecapData['sections'] = []
   const steps = [...catalog.steps].sort((a, b) => a.position - b.position)
   for (const step of steps) {
+    // Étape sans choix : présentée dans « Déjà compris » (ci-dessous).
+    if (step.rule_type === 'free') continue
     const lines = catalog.items
       .filter((it) => it.step_id === step.id && (input.selections[it.id] ?? 0) > 0)
       .sort((a, b) => a.position - b.position)

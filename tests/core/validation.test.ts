@@ -158,6 +158,19 @@ describe('validateComposition — options', () => {
     expect(errorsOf({ ...validPayload(), optionIds: 'o-bar' })).toContain(msg)
     expect(errorsOf(validPayload({ optionIds: ['o-bar', 'o-bar'] }))).toContain(msg)
   })
+
+  it('options exclusives : une seule par groupe', () => {
+    expect(validateComposition(catalog, validPayload({ optionIds: ['o-install'] }), NOW)).toEqual({ ok: true })
+    expect(errorsOf(validPayload({ optionIds: ['o-install', 'o-service'] }))).toContain(
+      'Deux options incompatibles ont été choisies : gardez-en une seule.',
+    )
+  })
+
+  it('option rattachée à une étape sans choix : refusée', () => {
+    expect(errorsOf(validPayload({ optionIds: ['o-hors'] }))).toContain(
+      '« Présentation spéciale » n’est possible qu’avec un choix dans l’étape correspondante.'.replace(/’/g, "'"),
+    )
+  })
 })
 
 describe('erreurs par champ et date proche', () => {

@@ -6,7 +6,7 @@ import { useCatalog } from '../hooks/useCatalog'
 import { telHref } from '../lib/format'
 import { downloadMenuPdf } from '../lib/menuPdf'
 import { track } from '../lib/tracking'
-import { appUrl, BOOKING_URL, CONFIRMATION_MESSAGE, shareText } from '../config/brand'
+import { appUrl, BOOKING_URL, CONDITIONS_URL, CONFIRMATION_MESSAGE, shareText } from '../config/brand'
 
 // Après l'envoi : on dit clairement ce qui se passe, puis on propose la
 // suite (dégustation, partage, PDF) au lieu d'une page sans issue.
@@ -90,7 +90,20 @@ export default function ConfirmationPage() {
         </section>
       )}
 
-      <p className="mt-10 text-center">
+      <p className="mt-8 text-center text-sm text-muted">
+        Acomptes, nombre définitif d’invités, service, matériel :{' '}
+        <a
+          href={CONDITIONS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-bold text-slate underline-offset-4 hover:underline"
+        >
+          nos conditions de mariage
+          <span className="sr-only"> (s’ouvre dans un nouvel onglet)</span>
+        </a>
+      </p>
+
+      <p className="mt-6 text-center">
         <button
           type="button"
           onClick={startOver}
