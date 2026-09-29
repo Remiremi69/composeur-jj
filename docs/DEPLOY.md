@@ -1103,7 +1103,9 @@ Attendez **Ready** sur Vercel.
 - [ ] Fiche admin : le brunch et sa mise en place apparaissent.
 - [ ] Récap : « tout compris, TTC (TVA 10 %) », encart « Bon à savoir »,
   lien « Toutes nos conditions de mariage » qui ouvre la page de J&J.
-- [ ] Formules : « 1 membre du personnel de service pour 45 convives ».
+- [ ] Formules : « 1 membre du personnel de service pour 45 convives » ;
+  sous le prix, seulement le prix par personne (plus de total « ≈ … pour N
+  convives »).
 - [ ] Petits plus : enlèvement des bouteilles vides (60 €) et des ordures
   (150 €).
 - [ ] Email du couple et PDF : mention TTC et « Bon à savoir » ; pied des

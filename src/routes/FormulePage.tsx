@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useComposition } from '../context/CompositionContext'
 import { useCatalog } from '../hooks/useCatalog'
 import { freeSteps } from '@core/journey'
-import { formatPrice, formatTotal } from '../lib/format'
+import { formatPrice } from '../lib/format'
 import { itemsForStep } from '../lib/rules'
 import IncludedInFormule from '../components/IncludedInFormule'
 import InclusionsPanel from '../components/InclusionsPanel'
@@ -111,10 +111,6 @@ export default function FormulePage() {
                   {formatPrice(f.price_per_person)}
                 </span>
                 <span className="text-xs uppercase tracking-[0.12em] text-muted">/ personne</span>
-              </p>
-              {/* Ordre de grandeur pour le nombre de convives saisi à l'accueil */}
-              <p className="mt-0.5 text-right text-xs text-muted">
-                ≈ {formatTotal(Number(f.price_per_person) * couple.guestCount)} pour {couple.guestCount} convives
               </p>
 
               {/* Choix */}
