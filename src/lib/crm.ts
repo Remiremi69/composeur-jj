@@ -3,16 +3,21 @@
 //
 // Règles communes :
 // • les compositions de TEST (is_test) sont exclues de toutes les statistiques ;
+// • les contacts ajoutés à la main SANS menu (lot 7) ne comptent ni dans les
+//   menus commencés, ni dans les menus envoyés ; ils comptent dans les
+//   demandes par origine et dans les signatures ;
 // • l'entonnoir compte l'étape la plus avancée JAMAIS atteinte, lue dans
 //   l'historique structuré (composition_notes.from_status / to_status), jamais
 //   dans du texte : une demande passée par « dégustation » puis « perdu »
 //   compte bien dans les dégustations.
+import { isWithoutMenu } from '@core/draft'
 import type { Composition, CompositionNote, CrmStatus, Formule, LostReason, Step } from '../types/db'
 
+// Libellés simples (lot 7) : « nouveau » se dit « À rappeler ».
 export const CRM_STATUS_LABELS: Record<CrmStatus, string> = {
-  nouveau: 'Nouveau',
+  nouveau: 'À rappeler',
   contacte: 'Contacté',
-  degustation: 'Dégustation',
+  degustation: 'Dégustation prévue',
   devis_envoye: 'Devis envoyé',
   signe: 'Signé',
   perdu: 'Perdu',
@@ -44,7 +49,7 @@ export function receivedAt(c: Composition): string {
 export type RequestTab = 'nouveaux' | 'en_cours' | 'signes' | 'perdus' | 'brouillons'
 
 export const TAB_LABELS: Record<RequestTab, string> = {
-  nouveaux: 'Nouveaux',
+  nouveaux: 'À rappeler',
   en_cours: 'En cours',
   signes: 'Signés',
   perdus: 'Perdus',
@@ -170,6 +175,8 @@ export function requestsCsv(list: Composition[], formules: Formule[], steps: Ste
 
 const active = (list: Composition[]) => list.filter((c) => !c.is_test)
 const submitted = (list: Composition[]) => active(list).filter((c) => c.status === 'submitted')
+// Menus réellement composés par un couple (brouillons et menus envoyés).
+const withMenu = (list: Composition[]) => active(list).filter((c) => !isWithoutMenu(c))
 
 // Étape la plus avancée jamais atteinte (historique structuré + état actuel).
 export function furthestStage(c: Composition, statusNotes: CompositionNote[]): number {
@@ -192,7 +199,7 @@ export interface FunnelStep {
 // Entonnoir sur les N derniers jours (compositions créées dans la période).
 export function funnel(list: Composition[], notes: CompositionNote[], days: number, now = Date.now()): FunnelStep[] {
   const since = now - days * DAY
-  const cohort = active(list).filter((c) => new Date(c.created_at).getTime() >= since)
+  const cohort = withMenu(list).filter((c) => new Date(c.created_at).getTime() >= since)
   const sent = cohort.filter((c) => c.status === 'submitted')
   const reached = (rank: number) => sent.filter((c) => furthestStage(c, notes) >= rank).length
   const steps: [string, string, number][] = [
@@ -210,11 +217,19 @@ export function funnel(list: Composition[], notes: CompositionNote[], days: numb
   }))
 }
 
+// Contacts ajoutés à la main sur les N derniers jours (avec ou sans menu ensuite).
+export function manualContactsCount(list: Composition[], days: number, now = Date.now()): number {
+  const since = now - days * DAY
+  return active(list).filter((c) => c.ajout_manuel && new Date(c.created_at).getTime() >= since).length
+}
+
 // Délai moyen entre la réception et le premier contact (en heures). Les
-// demandes reprises de l'ancien « traité » n'ont pas de date : ignorées.
+// demandes reprises de l'ancien « traité » n'ont pas de date : ignorées. Les
+// contacts ajoutés à la main aussi : ils arrivent souvent déjà appelés, ce
+// délai mesure la réactivité aux demandes reçues en ligne.
 export function averageFirstContactHours(list: Composition[]): { hours: number; count: number } | null {
   const delays = submitted(list)
-    .filter((c) => c.contacted_at)
+    .filter((c) => c.contacted_at && !c.ajout_manuel)
     .map((c) => (new Date(c.contacted_at as string).getTime() - new Date(receivedAt(c)).getTime()) / 3600_000)
     .filter((h) => h >= 0)
   if (delays.length === 0) return null

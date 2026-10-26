@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isOpenForComposing,
   isShareToken,
+  isWithoutMenu,
+  OPEN_FOR_COMPOSING_FILTER,
   parseDraftCouple,
   parseDraftUpdate,
   sanitizeAttribution,
@@ -142,5 +145,22 @@ describe('sanitizeState', () => {
       optionIds: ['o-bar'],
       removed: true,
     })
+  })
+})
+
+describe('fiche ouverte à la composition (lot 7)', () => {
+  it('brouillon : oui', () => {
+    expect(isOpenForComposing({ status: 'draft' })).toBe(true)
+  })
+  it('contact ajouté à la main, sans menu : oui', () => {
+    expect(isWithoutMenu({ status: 'submitted', ajout_manuel: true, consent_at: null })).toBe(true)
+    expect(isOpenForComposing({ status: 'submitted', ajout_manuel: true, consent_at: null })).toBe(true)
+  })
+  it('menu déjà envoyé (par le site ou après le lien du traiteur) : non', () => {
+    expect(isOpenForComposing({ status: 'submitted', ajout_manuel: false, consent_at: null })).toBe(false)
+    expect(isOpenForComposing({ status: 'submitted', ajout_manuel: true, consent_at: '2026-10-20T10:00:00Z' })).toBe(false)
+  })
+  it('même règle pour la mise à jour en base (filtre PostgREST)', () => {
+    expect(OPEN_FOR_COMPOSING_FILTER).toBe('status.eq.draft,and(ajout_manuel.is.true,consent_at.is.null)')
   })
 })

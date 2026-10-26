@@ -1,0 +1,39 @@
+-- ============================================================
+-- LE COMPOSEUR — Résumé du lundi matin pour Jessica et Jérôme
+-- pg_cron + pg_net appellent l'Edge Function send-weekly-digest.
+--
+-- ⚠️ À EXÉCUTER À LA MAIN dans le SQL Editor, APRÈS avoir déployé la
+--    fonction (cf. docs/DEPLOY.md, lot 7). Même principe que les relances
+--    (supabase/cron/draft-reminders.sql) : pas une migration, car elle
+--    dépend du secret, rangé dans le coffre-fort (Vault).
+--
+-- Le secret « cron_secret » a déjà été créé pour les relances : rien à
+-- refaire. Sinon, voir l'étape 2 de draft-reminders.sql.
+--
+-- Heure : pg_cron compte en heure UTC. La tâche tourne le lundi à 6 h ET
+-- 7 h UTC ; la fonction n'envoie qu'à l'appel qui tombe à 8 h, heure de
+-- Paris (été comme hiver). Un seul email par semaine.
+-- ============================================================
+
+-- select cron.schedule(
+--   'composeur-resume-hebdo',
+--   '0 6,7 * * 1',
+--   $$
+--   select net.http_post(
+--     url := 'https://qlxswvjvorycpxbncppr.supabase.co/functions/v1/send-weekly-digest',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+--     ),
+--     body := '{}'::jsonb,
+--     timeout_milliseconds := 60000
+--   );
+--   $$
+-- );
+
+-- ------------------------------------------------------------
+-- Vérifier / suspendre / supprimer
+-- ------------------------------------------------------------
+-- select jobid, jobname, schedule, active from cron.job;
+-- select status, return_message, start_time from cron.job_run_details order by start_time desc limit 10;
+-- select cron.unschedule('composeur-resume-hebdo');

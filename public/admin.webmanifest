@@ -1,0 +1,18 @@
+{
+  "name": "J&J Demandes",
+  "short_name": "J&J Demandes",
+  "description": "Les demandes de mariage reçues par J&J Traiteur.",
+  "lang": "fr",
+  "id": "/admin",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f0ea",
+  "theme_color": "#435464",
+  "icons": [
+    { "src": "/brand/admin-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/admin-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/admin-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import AccueilPage from './routes/AccueilPage'
 import FormulePage from './routes/FormulePage'
@@ -6,13 +6,15 @@ import ComposerPage, { ComposerEntry } from './routes/ComposerPage'
 import OptionsPage from './routes/OptionsPage'
 import RecapPage from './routes/RecapPage'
 import ConfirmationPage from './routes/ConfirmationPage'
-import AdminPage from './routes/AdminPage'
 import ResumePage from './routes/ResumePage'
 import MenuPage from './routes/MenuPage'
 import UnsubscribePage from './routes/UnsubscribePage'
 import BrandHeader from './components/BrandHeader'
 import CatalogGuard from './components/CatalogGuard'
 import { trackPageview } from './lib/tracking'
+
+// Espace traiteur chargé à part : les couples ne téléchargent pas son code.
+const AdminPage = lazy(() => import('./routes/AdminPage'))
 
 export default function App() {
   // L'en-tête de marque est affiché sur toutes les pages publiques
@@ -43,7 +45,14 @@ export default function App() {
           <Route path="/reprendre/:token" element={<ResumePage />} />
           <Route path="/menu/:token" element={<MenuPage />} />
           <Route path="/desinscription/:token" element={<UnsubscribePage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route
+            path="/admin/*"
+            element={
+              <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-muted">…</div>}>
+                <AdminPage />
+              </Suspense>
+            }
+          />
         </Routes>
       </div>
     </div>

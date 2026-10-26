@@ -208,3 +208,24 @@ export function sanitizeState(
 
   return { formuleId, selections, optionIds, removed }
 }
+
+// ---------------------------------------------------------------- Lot 7
+// Contact ajouté par le traiteur (ajout_manuel) dont le couple n'a pas encore
+// envoyé de menu (consent_at vide) : une fiche « sans menu ».
+export interface CompositionFlags {
+  status: string
+  ajout_manuel?: boolean | null
+  consent_at?: string | null
+}
+
+export function isWithoutMenu(c: CompositionFlags): boolean {
+  return c.ajout_manuel === true && !c.consent_at
+}
+
+// Le couple peut (encore) composer sur cette fiche : brouillon, ou fiche sans menu.
+export function isOpenForComposing(c: CompositionFlags): boolean {
+  return c.status === 'draft' || isWithoutMenu(c)
+}
+
+// Même règle, en filtre PostgREST (.or(...)) pour les mises à jour.
+export const OPEN_FOR_COMPOSING_FILTER = 'status.eq.draft,and(ajout_manuel.is.true,consent_at.is.null)'

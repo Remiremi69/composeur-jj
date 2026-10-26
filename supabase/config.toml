@@ -425,3 +425,7 @@ verify_jwt = false
 # Désinscription « en un clic » depuis la messagerie (List-Unsubscribe) ;
 # le jeton de partage (UUID) fait foi, et l'action se limite à désinscrire.
 verify_jwt = false
+
+[functions.send-weekly-digest]
+# Résumé du lundi (lot 7), appelé par pg_cron ; protégé par x-cron-secret (CRON_SECRET).
+verify_jwt = false

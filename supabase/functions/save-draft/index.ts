@@ -6,7 +6,8 @@
 //   (anti-spam complet : honeypot, limite de débit, Turnstile).
 //   Réponse : { ok, compositionId, shareToken }.
 // • Avec shareToken : MISE À JOUR (état, formule, étape, infos d'accueil),
-//   uniquement si la composition est encore un brouillon. Pas de limite de
+//   uniquement si la composition est encore un brouillon (ou un contact
+//   ajouté par le traiteur, sans menu : lot 7). Pas de limite de
 //   débit (le jeton fait foi), mais taille bornée. Réponse : { ok }.
 //
 // Validation de structure seulement (types, tailles, identifiants existants) :
@@ -17,6 +18,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.108.
 import { brandContact } from '../_shared/brand.ts'
 import {
   isShareToken,
+  OPEN_FOR_COMPOSING_FILTER,
   parseDraftCouple,
   parseDraftUpdate,
   sanitizeAttribution,
@@ -136,12 +138,14 @@ async function updateDraft(
   if (u.clientState !== undefined) patch.client_state = u.clientState
   if (Object.keys(patch).length === 0) return json({ ok: true }, 200, cors)
 
-  // Uniquement tant que la composition est un brouillon.
+  // Uniquement tant que la composition est un brouillon, ou un contact
+  // ajouté par le traiteur dont le couple n'a pas encore envoyé de menu.
+  // La source n'est jamais modifiée ici.
   const { data, error } = await admin
     .from('compositions')
     .update(patch)
     .eq('share_token', shareToken)
-    .eq('status', 'draft')
+    .or(OPEN_FOR_COMPOSING_FILTER)
     .select('id')
   if (error) throw new Error(`mise à jour du brouillon : ${error.message}`)
   if (!data || data.length === 0) {

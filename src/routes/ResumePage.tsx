@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useComposition } from '../context/CompositionContext'
+import { coupleInfoFieldErrors } from '@core/validation'
 import { fetchDraft } from '../lib/drafts'
 import { track } from '../lib/tracking'
 
@@ -28,17 +29,21 @@ export default function ResumePage() {
       } else if (r.status === 'draft') {
         const cs = r.clientState ?? {}
         const currentStep = cs.currentStep ?? r.lastStep ?? null
+        const couple = { ...r.couple, weddingDate: r.couple.weddingDate ?? '' }
         resumeDraft({
           shareToken: token,
           compositionId: r.compositionId,
-          couple: { ...r.couple, weddingDate: r.couple.weddingDate ?? '' },
+          couple,
           formuleId: r.formuleId,
           currentStep,
           selections: cs.selections ?? {},
           optionIds: cs.optionIds ?? [],
         })
         track('Reprise brouillon')
-        navigate(routeForStep(currentStep, r.formuleId), { replace: true })
+        // Lien envoyé par le traiteur (lot 7) : il manque souvent l'email ou
+        // le nombre de convives → l'accueil, prérempli, les demande d'abord.
+        const incomplete = Object.keys(coupleInfoFieldErrors(couple)).length > 0
+        navigate(incomplete ? '/' : routeForStep(currentStep, r.formuleId), { replace: true })
       } else {
         setState(r.status)
       }

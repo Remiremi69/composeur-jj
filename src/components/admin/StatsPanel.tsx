@@ -8,8 +8,10 @@ import {
   conversionBySource,
   funnel,
   lostReasons,
+  manualContactsCount,
   topDishes,
 } from '../../lib/crm'
+import { sourceLabel } from '../../lib/contacts'
 
 interface StatsPanelProps {
   compositions: Composition[]
@@ -36,6 +38,7 @@ export default function StatsPanel({ compositions, statusNotes, compItems, items
   const losses = lostReasons(compositions)
   const dishes = topDishes(compositions, compItems, items, 10)
   const max = Math.max(1, steps[0]?.count ?? 1)
+  const manual = manualContactsCount(compositions, days)
 
   return (
     <div className="flex flex-col gap-10">
@@ -64,6 +67,10 @@ export default function StatsPanel({ compositions, statusNotes, compItems, items
           Menus commencés sur les {days} derniers jours, et jusqu’où ils sont allés. Une demande compte à
           chaque étape qu’elle a atteinte, même si elle a été perdue ensuite. Le pourcentage indique la part
           de l’étape précédente.
+        </p>
+        <p className="mb-3 text-sm text-ink">
+          Contacts ajoutés à la main sur la période : <strong>{manual}</strong>
+          <span className="text-muted"> (comptés dans l’entonnoir seulement s’ils envoient un menu)</span>
         </p>
         <div className="flex flex-col gap-2">
           {steps.map((s) => (
@@ -114,7 +121,7 @@ export default function StatsPanel({ compositions, statusNotes, compItems, items
               <thead>
                 <tr className="border-b border-lin bg-lin-light text-xs uppercase tracking-wide text-muted">
                   <th className="px-4 py-2 font-medium">Source</th>
-                  <th className="px-4 py-2 text-right font-medium">Envoyés</th>
+                  <th className="px-4 py-2 text-right font-medium">Demandes</th>
                   <th className="px-4 py-2 text-right font-medium">Signés</th>
                   <th className="px-4 py-2 text-right font-medium">Conversion</th>
                 </tr>
@@ -122,7 +129,7 @@ export default function StatsPanel({ compositions, statusNotes, compItems, items
               <tbody>
                 {sources.map((r) => (
                   <tr key={r.source} className="border-b border-lin bg-fond last:border-0">
-                    <td className="px-4 py-2 text-ink">{r.source}</td>
+                    <td className="px-4 py-2 text-ink">{sourceLabel(r.source) ?? r.source}</td>
                     <td className="px-4 py-2 text-right text-ink">{r.sent}</td>
                     <td className="px-4 py-2 text-right text-ink">{r.signed}</td>
                     <td className="px-4 py-2 text-right font-bold text-slate">{pct(r.rate)}</td>

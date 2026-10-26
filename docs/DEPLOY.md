@@ -1117,6 +1117,279 @@ Marquez vos envois de test comme test (fiche admin).
 
 ---
 
+## Lot 7 — Espace traiteur sur téléphone
+
+### Ce qui change
+
+- **Connexion sans mot de passe** : on tape son email, on reçoit un email
+  avec un **code à 6 chiffres** (en grand, en premier) et un **lien**. Le
+  code fonctionne partout, y compris dans l'application installée sur
+  iPhone (le lien, lui, s'ouvre dans Safari). On reste connecté ensuite.
+  Seuls les comptes déjà créés reçoivent l'email ; le message affiché est
+  le même pour tout le monde.
+- **« J&J Demandes » installable** sur l'écran d'accueil (iPhone, Android),
+  avec un bandeau d'explication la première fois.
+- **Nouvel accueil** : trois gros compteurs (À rappeler, En cours, Signés
+  ce mois-ci), des cartes avec « Appeler », « WhatsApp » et le statut en
+  mots simples. Vue par défaut : « À rappeler », les plus anciennes
+  d'abord, en rouge après 48 h.
+- **« Ajouter un contact »** (bouton en bas à droite) : un couple rencontré
+  au téléphone, sur un salon… Case « Déjà appelé » cochée par défaut
+  (statut « Contacté »). Si le téléphone ou l'email existe déjà : « Ce
+  contact existe déjà », avec le lien vers la fiche et « Ajouter quand
+  même ». Badge « Doublon possible » dans la liste. Jamais de fusion
+  automatique.
+- **« Envoyer le configurateur »** (fiches sans menu) : lien personnel par
+  WhatsApp, SMS, email ou copie. Le couple compose son menu **sur la même
+  fiche**. Une fois le menu envoyé, le bouton devient « Voir le menu ». Pas
+  de rappel automatique pour ces contacts.
+- **« Mes liens »** (`/admin/liens`) : le lien général et une variante par
+  origine (après un appel, Instagram, salon, carte de visite,
+  bouche-à-oreille), chacune avec « Copier » et son QR code en PNG.
+- **Résumé du lundi 8 h** par email (fonction `send-weekly-digest`).
+- **Statistiques** : les contacts sans menu ne comptent pas dans « Menus
+  commencés / envoyés » ; une ligne « Contacts ajoutés à la main » ; la
+  conversion par origine les inclut.
+
+**Une modification de schéma** (colonne `compositions.ajout_manuel`,
+fonction `ajouter_contact`). **Pas de nouveau secret** (`CRON_SECRET`,
+`TRAITEUR_EMAIL` et Resend existent déjà). Réglages à faire dans Supabase
+Auth : étapes 2 à 5.
+
+---
+
+### Étape 1 — Vérifier la CLI
+
+```bash
+cd C:\Users\mormo\Desktop\composeur-jj
+```
+```bash
+npx supabase migration list
+```
+
+Attendu : en **Local** uniquement, une nouvelle migration : `20261026120000`.
+
+---
+
+### Étape 2 — Envoi des emails de connexion par Resend (SMTP)
+
+Sans cette étape, Supabase envoie très peu d'emails par heure, depuis une
+adresse générique. Dashboard Supabase → **Authentication** → **Emails** →
+onglet **SMTP Settings** → **Enable Custom SMTP** :
+
+| Champ | Valeur |
+|---|---|
+| Sender email | `menu@j-jtraiteur.fr` (la même adresse d'envoi que les menus ; domaine vérifié dans Resend) |
+| Sender name | `J&J Traiteur` |
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Username | `resend` |
+| Password | une **clé API Resend** (Resend → API Keys → Create, droit « Sending access ») |
+
+Collez la clé **vous-même** dans ce champ, ne la mettez nulle part
+ailleurs. Puis **Save**.
+
+---
+
+### Étape 3 — Modèle de l'email de connexion (code en grand, lien ensuite)
+
+**Authentication** → **Emails** → onglet **Templates** → **Magic Link**
+(c'est ce modèle que Supabase utilise pour un compte existant).
+
+**Subject** :
+
+```text
+Votre code de connexion J&J Demandes
+```
+
+**Body** (remplacez tout le contenu par ceci) :
+
+```html
+<div style="margin:0;padding:24px 12px;background:#f4f0ea;font-family:Lato,'Helvetica Neue',Arial,sans-serif;color:#2c3640">
+  <div style="max-width:480px;margin:0 auto;background:#fbfaf8;border:1px solid #e6dfd4;border-top:3px solid #b08d5c;border-radius:4px;padding:28px 24px;text-align:center">
+    <p style="margin:0 0 4px;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#435464">J&amp;J Traiteur</p>
+    <p style="margin:0 0 20px;font-size:16px">Votre code de connexion à l'espace traiteur :</p>
+    <p style="margin:0 0 8px;font-size:40px;font-weight:bold;letter-spacing:10px;color:#435464;font-family:'Courier New',monospace">{{ .Token }}</p>
+    <p style="margin:0 0 28px;font-size:14px;color:#435464">Tapez ce code dans l'écran de connexion. Il est valable 1 heure.</p>
+    <p style="margin:0 0 12px;font-size:15px">Ou touchez ce bouton :</p>
+    <p style="margin:0 0 28px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 28px;background:#435464;color:#f4f0ea;font-weight:bold;text-decoration:none;border-radius:4px">Me connecter</a></p>
+    <p style="margin:0;font-size:13px;color:#435464">Sur iPhone, dans l'application « J&amp;J Demandes » installée sur l'écran d'accueil, utilisez plutôt le code : le bouton ouvre Safari.<br><br>Vous n'avez rien demandé ? Ignorez cet email.</p>
+  </div>
+</div>
+```
+
+Puis **Save**. Dans **Authentication** → **Providers** → **Email** :
+vérifiez que **Email OTP Length** vaut **6** et **Email OTP Expiration**
+**3600** secondes (1 heure).
+
+---
+
+### Étape 4 — Adresse de retour du lien de connexion
+
+Tant que la bascule vers `composer.j-jtraiteur.fr` n'est pas faite, tout
+pointe vers l'adresse **en service aujourd'hui**. (Le jour de la bascule,
+ces deux réglages changent : voir « Bascule vers composer.j-jtraiteur.fr »,
+étape 2.)
+
+**Authentication** → **URL Configuration** :
+
+| Réglage | Valeur |
+|---|---|
+| **Site URL** | `https://composeur-jj.vercel.app` |
+| **Redirect URLs** → **Add URL** | `https://composeur-jj.vercel.app/admin` |
+
+**Save**. Sans l'adresse de retour, le lien de l'email renvoie vers la page
+d'accueil au lieu de l'espace traiteur ; le code, lui, fonctionne quand
+même.
+
+**Rester connecté** : **Authentication** → **Sessions** (si la page
+existe) : laissez **Time-box user sessions** et **Inactivity timeout**
+**désactivés** (valeur 0 / « never »).
+
+---
+
+### Étape 5 — Comptes admin
+
+Les inscriptions restent fermées (lot 1) : un compte doit exister **et**
+être déclaré dans `admins` pour se connecter. Les comptes déclarés au lot 1
+le restent.
+
+Pour un **nouveau** compte (par exemple Jessica ou Jérôme, plus tard) :
+**Authentication** → **Users** → **Add user** → **Create new user** :
+l'email, un mot de passe au hasard (il ne servira jamais : la connexion se
+fait par code), cocher **Auto Confirm User** → **Create user**. Puis
+**SQL Editor** → **New query**, remplacez l'adresse et **Run** :
+
+```sql
+insert into public.admins (user_id)
+select id from auth.users
+where email = 'ADRESSE_A_AUTORISER'
+on conflict (user_id) do nothing;
+```
+
+Si l'adresse existe déjà dans **Users** (compte du lot 1), seule la
+requête SQL est utile (sans effet si le compte est déjà admin).
+
+Vérification (doit lister les comptes autorisés) :
+
+```sql
+select u.email from public.admins a join auth.users u on u.id = a.user_id;
+```
+
+Le compte existant (lot 1) reste valable : il se connecte maintenant par
+code.
+
+---
+
+### ⏱️ Étapes 6 à 8 : à enchaîner sans pause
+
+### Étape 6 — Appliquer la migration
+
+```bash
+npx supabase db push --dry-run
+```
+
+Attendu : exactement `20261026120000_contacts_traiteur.sql`. Puis :
+
+```bash
+npx supabase db push
+```
+
+---
+
+### Étape 7 — Déployer les fonctions
+
+```bash
+npx supabase functions deploy get-draft
+```
+```bash
+npx supabase functions deploy save-draft
+```
+```bash
+npx supabase functions deploy send-weekly-digest --no-verify-jwt
+```
+
+(`get-draft` et `save-draft` : un contact ajouté à la main peut composer son
+menu sur sa fiche. `submit-composition` ne change pas : c'est la migration
+qui accepte ces fiches.)
+
+---
+
+### Étape 8 — Déployer le site (sans la redirection)
+
+```bash
+git push origin HEAD~1:master
+```
+
+Attendez **Ready** sur Vercel. (Cette commande suppose que le commit de la
+redirection reste le dernier ; si ce n'est plus le cas, demandez-moi la
+commande exacte.)
+
+---
+
+### Étape 9 — Programmer le résumé du lundi
+
+D'abord un envoi de test immédiat (remplacez `VOTRE_CRON_SECRET`) :
+
+```bash
+curl -X POST https://qlxswvjvorycpxbncppr.supabase.co/functions/v1/send-weekly-digest -H "x-cron-secret: VOTRE_CRON_SECRET" -H "Content-Type: application/json" -d "{\"force\":true}"
+```
+
+Attendu : `{"ok":true,...}` et un email « Votre semaine J&J » à
+`TRAITEUR_EMAIL`. Ensuite, ouvrez **`supabase/cron/weekly-digest.sql`**,
+copiez le bloc `cron.schedule` **sans les `--`** dans le **SQL Editor**,
+puis **Run**. (Le secret `cron_secret` du coffre-fort existe déjà depuis le
+lot 2.) Vérification :
+
+```sql
+select jobname, schedule, active from cron.job;
+```
+
+Attendu : `composeur-resume-hebdo` · `0 6,7 * * 1` · `true`. La tâche tourne
+deux fois le lundi matin (6 h et 7 h UTC) ; un seul email part, à 8 h heure
+de Paris, été comme hiver.
+
+---
+
+### Étape 10 — Checklist de tests en production (sur téléphone)
+
+- [ ] `/admin` : « Recevoir mon code » → message « Si cette adresse est
+  autorisée, vous allez recevoir un lien de connexion. » ; l'email montre
+  le code en grand puis le bouton.
+- [ ] Le code connecte. Le bouton de l'email connecte aussi (ouvre
+  `/admin`).
+- [ ] Une adresse non autorisée : même message, **aucun** email reçu.
+- [ ] Bandeau d'installation → « Compris » → il ne revient pas.
+- [ ] Ajout à l'écran d'accueil (iPhone : Partager → « Sur l'écran
+  d'accueil ») : icône J&J, nom « J&J Demandes », s'ouvre sans barre
+  d'adresse ; connexion par code dans l'application installée.
+- [ ] Le lendemain : toujours connecté.
+- [ ] Accueil : trois compteurs, cartes lisibles, « Appeler » ouvre le
+  téléphone, « WhatsApp » ouvre la conversation.
+- [ ] Changer un statut depuis une carte ; « Perdu » demande le motif.
+- [ ] « Ajouter un contact » avec **votre** numéro : « Déjà appelé » cochée
+  → la fiche est en « En cours » ; décochée → en « À rappeler ».
+- [ ] Rajouter le même numéro → « Ce contact existe déjà », lien vers la
+  fiche ; « Ajouter quand même » → les deux fiches portent « Doublon
+  possible ».
+- [ ] Sur le contact : « Envoyer le configurateur » → WhatsApp avec le
+  message prérempli ; « Copier le lien ».
+- [ ] Ouvrir ce lien sur un autre téléphone : prénoms préremplis, l'email
+  est demandé ; composer et envoyer le menu → **la même fiche** affiche le
+  menu, « Voir le menu » remplace « Envoyer le configurateur », l'origine
+  (ex. « Salon ») n'a pas changé.
+- [ ] « Mes liens » : « Copier » et « QR code (PNG) » ; scanner un QR code
+  ouvre le Composeur.
+- [ ] Le site public (page d'accueil) ne propose **pas** d'installer une
+  application.
+
+### Étape 11 — Nettoyage
+
+Marquez vos contacts et menus de test comme test (fiche → « Marquer comme
+test »).
+
+---
+
 ## Ajouter ou changer le logo (à tout moment)
 
 1. **Déposer** les fichiers dans `public/brand/` (noms et formats : lot 4,
@@ -1186,6 +1459,14 @@ Cloudflare → **Turnstile** → votre widget → **Hostnames** : **ajoutez**
 Vercel → **Environment Variables** : `VITE_APP_URL` =
 `https://composer.j-jtraiteur.fr`.
 
+Supabase → **Authentication** → **URL Configuration** (connexion à
+l'espace traiteur, lot 7) :
+
+| Réglage | Nouvelle valeur |
+|---|---|
+| **Site URL** | `https://composer.j-jtraiteur.fr` |
+| **Redirect URLs** | **ajoutez** `https://composer.j-jtraiteur.fr/admin` (gardez `https://composeur-jj.vercel.app/admin` jusqu'à l'étape 6) |
+
 ### Étape 3 — Déployer la redirection
 
 ```bash
@@ -1225,6 +1506,8 @@ Quelques jours plus tard, une fois tout vérifié :
 
 - `ALLOWED_ORIGINS` = `https://composer.j-jtraiteur.fr`
 - Turnstile : retirez `composeur-jj.vercel.app` des Hostnames.
+- Supabase Auth → **Redirect URLs** : retirez
+  `https://composeur-jj.vercel.app/admin`.
 
 **Ne retirez pas** `composeur-jj.vercel.app` des domaines Vercel, ni la
 redirection de `vercel.json` : ce sont elles qui font fonctionner les

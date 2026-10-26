@@ -5,8 +5,10 @@
 // • Menu envoyé : renvoie une vue en LECTURE SEULE (noms, date, convives,
 //   formule, plats et options par étape, estimation). Aucun email, téléphone,
 //   lieu ni message : cette page peut être partagée.
+// • Contact ajouté par le traiteur, sans menu (lot 7) : traité comme un
+//   brouillon, pour que le couple compose son menu sur la même fiche.
 
-import { isShareToken } from '../_shared/core/draft.ts'
+import { isOpenForComposing, isShareToken } from '../_shared/core/draft.ts'
 import { adminClient, GENERIC_ERROR, guardRequest, json } from '../_shared/guard.ts'
 import { readOnlyMenu } from '../_shared/menu.ts'
 
@@ -24,14 +26,15 @@ Deno.serve(async (req) => {
     const admin = adminClient()
     const { data: comp, error } = await admin
       .from('compositions')
-      .select('id, status, couple_names, email, wedding_date, guest_count, formule_id, last_step, client_state')
+      .select('id, status, ajout_manuel, consent_at, couple_names, email, wedding_date, guest_count, formule_id, last_step, client_state')
       .eq('share_token', token)
       .maybeSingle()
     if (error) throw new Error(`lecture de la composition : ${error.message}`)
     if (!comp) return json({ ok: false, error: 'Ce lien n’est plus valide.' }, 404, cors)
 
-    if (comp.status === 'draft') {
-      // Uniquement ce que le couple a lui-même saisi.
+    if (isOpenForComposing(comp)) {
+      // Uniquement les prénoms, l'email, la date et le nombre de convives :
+      // jamais le téléphone ni les notes du traiteur.
       return json(
         {
           ok: true,

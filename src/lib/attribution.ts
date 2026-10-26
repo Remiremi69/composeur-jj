@@ -10,9 +10,16 @@ export interface Attribution {
   landingParams: LandingParams | null
 }
 
+// Liens personnels (/reprendre/…, envoyés par le traiteur ou par la relance) :
+// leur ?source= sert SEULEMENT à la mesure d'audience (adresse conservée par
+// maskUrl). Il n'est jamais transmis à la fiche, dont l'origine est déjà
+// connue (et ne doit pas être écrasée).
+const AUDIENCE_ONLY_ROUTES = ['/reprendre/']
+
 // À appeler au démarrage de l'application.
 export function captureAttribution(): void {
   try {
+    if (AUDIENCE_ONLY_ROUTES.some((r) => window.location.pathname.startsWith(r))) return
     if (sessionStorage.getItem(KEY)) return // déjà capturée pour cette session
     const params = new URLSearchParams(window.location.search)
     const found: LandingParams = {}

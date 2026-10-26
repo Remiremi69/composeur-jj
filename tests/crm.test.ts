@@ -8,6 +8,7 @@ import {
   inTab,
   lastStepLabel,
   lostReasons,
+  manualContactsCount,
   matchesSearch,
   requestsCsv,
   sortRequests,
@@ -52,6 +53,7 @@ function comp(extra: Partial<Composition> = {}): Composition {
     contacted_at: null,
     estimate: null,
     is_test: false,
+    ajout_manuel: false,
     ...extra,
   }
 }
@@ -198,5 +200,37 @@ describe('liste des demandes', () => {
     expect(lastStepLabel('plat', steps)).toBe('Plat')
     expect(lastStepLabel('recap', steps)).toBe('Récapitulatif')
     expect(whatsappHref('+33 6 12 34 56 78')).toBe('https://wa.me/33612345678')
+  })
+})
+
+describe('lot 7 : contacts ajoutés à la main', () => {
+  const manual = (extra: Partial<Composition> = {}) =>
+    comp({ ajout_manuel: true, consent_at: null, formule_id: null, total_estimate: null, created_at: daysAgo(3), ...extra })
+
+  it('sans menu : ni menu commencé, ni menu envoyé ; avec menu : compté normalement', () => {
+    const list = [comp({ created_at: daysAgo(3) }), manual(), manual({ consent_at: daysAgo(1), formule_id: 'f1' })]
+    const [commences, envoyes] = funnel(list, [], 30, NOW)
+    expect(commences.count).toBe(2)
+    expect(envoyes.count).toBe(2)
+  })
+
+  it('compte les contacts ajoutés à la main sur la période (hors tests)', () => {
+    const list = [manual(), manual({ consent_at: daysAgo(1) }), manual({ created_at: daysAgo(60) }), manual({ is_test: true }), comp()]
+    expect(manualContactsCount(list, 30, NOW)).toBe(2)
+  })
+
+  it('délai de premier contact : les contacts ajoutés « déjà appelés » ne faussent pas la moyenne', () => {
+    const online = comp({ consent_at: daysAgo(4), contacted_at: new Date(NOW - 4 * 86400_000 + 6 * 3600_000).toISOString() })
+    const called = manual({ crm_status: 'contacte', contacted_at: daysAgo(3) })
+    expect(averageFirstContactHours([online, called])).toEqual({ hours: 6, count: 1 })
+  })
+
+  it('conversion par origine : les contacts manuels comptent, avec leur origine', () => {
+    const rows = conversionBySource([manual({ source: 'salon', crm_status: 'signe' }), manual({ source: 'salon' }), comp({ source: 'instagram' })])
+    expect(rows.find((r) => r.source === 'salon')).toMatchObject({ sent: 2, signed: 1 })
+  })
+
+  it('libellés simples', () => {
+    expect(inTab(manual(), 'nouveaux')).toBe(true)
   })
 })

@@ -54,6 +54,8 @@ export interface Composition {
   contacted_at: string | null // premier contact
   estimate: Estimate | null // détail du prix figé à l'envoi (absent avant le lot 5)
   is_test: boolean
+  // Lot 7 — contact ajouté par le traiteur (sans menu tant que consent_at est vide)
+  ajout_manuel: boolean
 }
 
 export type CrmStatus = 'nouveau' | 'contacte' | 'degustation' | 'devis_envoye' | 'signe' | 'perdu'

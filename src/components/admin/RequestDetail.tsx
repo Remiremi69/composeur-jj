@@ -6,7 +6,6 @@ import type {
   CompositionItem,
   CompositionNote,
   CompositionOption,
-  CrmStatus,
   Formule,
   Item,
   LostReason,
@@ -16,21 +15,18 @@ import type {
 } from '../../types/db'
 import { computeEstimate, type Estimate } from '../../lib/pricing'
 import { formatDate, formatPhone, formatPrice, formatTotal, optionPriceLabel } from '../../lib/format'
-import {
-  CRM_STATUSES,
-  CRM_STATUS_LABELS,
-  LOST_REASONS,
-  LOST_REASON_LABELS,
-  receivedAt,
-  whatsappHref,
-} from '../../lib/crm'
+import { CRM_STATUS_LABELS, LOST_REASON_LABELS, receivedAt, whatsappHref } from '../../lib/crm'
+import { isWithoutMenu, sourceLabel } from '../../lib/contacts'
+import StatusPicker from './StatusPicker'
+import SendConfigurator from './SendConfigurator'
 
 // Provenance lisible : source + paramètres utm utiles.
 function provenance(c: Composition): string | null {
   const p = c.landing_params ?? {}
   const details = [p.utm_medium, p.utm_campaign].filter(Boolean).join(' · ')
   if (!c.source && !details) return null
-  return [c.source, details].filter(Boolean).join(' — ')
+  const origin = sourceLabel(c.source)
+  return [c.ajout_manuel && origin ? `${origin} (ajouté par J&J)` : origin, details].filter(Boolean).join(' — ')
 }
 
 function dateTime(iso: string): string {
@@ -91,32 +87,12 @@ export default function RequestDetail({
     loadNotes()
   }, [loadNotes])
 
-  // ------------------------------------------------ statut
-  const [pendingStatus, setPendingStatus] = useState<CrmStatus | null>(null) // « perdu » en attente de motif
-  const [reason, setReason] = useState<LostReason | ''>('')
-  const [saving, setSaving] = useState(false)
+  // ------------------------------------------------ statut, menu
   const [actionError, setActionError] = useState<string | null>(null)
-
-  async function saveStatus(status: CrmStatus, lostReason: LostReason | null) {
-    setSaving(true)
-    setActionError(null)
-    const { error } = await supabase
-      .from('compositions')
-      .update({ crm_status: status, lost_reason: lostReason })
-      .eq('id', c.id)
-    setSaving(false)
-    if (error) return setActionError('Le statut n’a pas pu être enregistré. Réessayez.')
-    setPendingStatus(null)
-    setReason('')
-    onChanged()
-    loadNotes()
-  }
-
-  function onStatusChange(status: CrmStatus) {
-    if (status === c.crm_status) return setPendingStatus(null)
-    if (status === 'perdu') return setPendingStatus('perdu') // demande le motif
-    saveStatus(status, null)
-  }
+  const [sending, setSending] = useState(false)
+  const isDraft = c.status === 'draft'
+  // Pas de menu envoyé : brouillon, ou contact ajouté à la main (lot 7).
+  const noMenu = isDraft || isWithoutMenu(c)
 
   async function toggleTest() {
     setActionError(null)
@@ -157,7 +133,7 @@ export default function RequestDetail({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="font-display text-2xl text-slate">
-              {c.couple_names}
+              {c.couple_names || 'Sans prénoms'}
               {c.is_test && (
                 <span className="ml-2 rounded-card border border-lin px-1.5 py-0.5 align-middle font-body text-xs text-muted">
                   test
@@ -165,33 +141,27 @@ export default function RequestDetail({
               )}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {c.wedding_date ? formatDate(c.wedding_date) : 'Date non précisée'} · {c.guest_count} convives
-              {formule ? ` · ${formule.name}` : ''}
+              {c.wedding_date ? formatDate(c.wedding_date) : 'Date non précisée'}
+              {c.guest_count ? ` · ${c.guest_count} convives` : ''}
+              {formule && !noMenu ? ` · ${formule.name}` : ''}
             </p>
             <p className="mt-1 text-xs text-muted">
-              Reçu le {dateTime(receivedAt(c))}
+              {c.ajout_manuel ? 'Ajouté le ' : isDraft ? 'Commencé le ' : 'Reçu le '}
+              {dateTime(c.ajout_manuel || isDraft ? c.created_at : receivedAt(c))}
+              {c.ajout_manuel && c.consent_at ? ` · menu envoyé le ${dateTime(c.consent_at)}` : ''}
               {c.contacted_at ? ` · premier contact le ${dateTime(c.contacted_at)}` : ''}
             </p>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <label className="flex items-center gap-2 text-sm text-muted">
-              Statut
-              <select
-                value={pendingStatus ?? c.crm_status}
-                disabled={saving}
-                onChange={(e) => onStatusChange(e.target.value as CrmStatus)}
-                className="rounded-card border border-slate bg-fond px-2 py-1.5 font-bold text-slate"
-              >
-                {CRM_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {CRM_STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {c.crm_status === 'perdu' && c.lost_reason && !pendingStatus && (
-              <p className="text-xs text-muted">Motif : {LOST_REASON_LABELS[c.lost_reason]}</p>
+          <div className="flex w-full flex-col gap-2 sm:w-64">
+            {!isDraft && (
+              <StatusPicker
+                composition={c}
+                onChanged={() => {
+                  onChanged()
+                  loadNotes()
+                }}
+              />
             )}
             <button type="button" onClick={toggleTest} className="text-xs text-muted underline underline-offset-2 hover:text-ink">
               {c.is_test ? 'Retirer des tests' : 'Marquer comme test'}
@@ -199,33 +169,6 @@ export default function RequestDetail({
           </div>
         </div>
 
-        {/* Motif de perte, demandé avant d'enregistrer « Perdu » */}
-        {pendingStatus === 'perdu' && (
-          <div className="mt-4 rounded-card border border-lin bg-lin-light p-4">
-            <p className="text-sm font-bold text-ink">Pourquoi cette demande est-elle perdue ?</p>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-              {LOST_REASONS.map((r) => (
-                <label key={r} className="flex items-center gap-1.5 text-sm text-ink">
-                  <input type="radio" name="motif" value={r} checked={reason === r} onChange={() => setReason(r)} />
-                  {LOST_REASON_LABELS[r]}
-                </label>
-              ))}
-            </div>
-            <div className="mt-3 flex gap-3">
-              <button
-                type="button"
-                disabled={!reason || saving}
-                onClick={() => reason && saveStatus('perdu', reason)}
-                className="rounded-card bg-slate px-4 py-2 text-sm font-bold text-lin hover:bg-slate-deep disabled:opacity-40"
-              >
-                Marquer comme perdue
-              </button>
-              <button type="button" onClick={() => setPendingStatus(null)} className="text-sm text-muted hover:text-ink">
-                Annuler
-              </button>
-            </div>
-          </div>
-        )}
         {actionError && <p className="mt-3 text-sm text-error">{actionError}</p>}
 
         {/* ------------------------------------------------ Contact */}
@@ -256,14 +199,24 @@ export default function RequestDetail({
               {c.email}
             </a>
           )}
-          <a
-            href={`/menu/${c.share_token}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-card border border-lin px-4 py-2 text-sm text-ink hover:border-slate"
-          >
-            Voir le menu en ligne ↗
-          </a>
+          {noMenu ? (
+            <button
+              type="button"
+              onClick={() => setSending(true)}
+              className="rounded-card border border-slate px-4 py-2 text-sm font-bold text-slate hover:bg-lin-light"
+            >
+              Envoyer le configurateur
+            </button>
+          ) : (
+            <a
+              href={`/menu/${c.share_token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-card border border-lin px-4 py-2 text-sm text-ink hover:border-slate"
+            >
+              Voir le menu
+            </a>
+          )}
         </div>
 
         <dl className="mt-5 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
@@ -276,7 +229,16 @@ export default function RequestDetail({
         </div>
       </div>
 
+      {noMenu && (
+        <p className="mt-6 rounded-card border border-lin bg-fond p-6 text-base text-muted">
+          {isDraft
+            ? 'Menu commencé sur le site, pas encore envoyé.'
+            : 'Pas encore de menu : envoyez le configurateur, le menu du couple arrivera sur cette fiche.'}
+        </p>
+      )}
+
       {/* ------------------------------------------------ Prix */}
+      {!noMenu && (
       <div className="mt-6 rounded-card border border-lin bg-fond p-6">
         <h2 className="font-display text-lg text-slate">Estimation</h2>
         {!frozen && (
@@ -298,7 +260,10 @@ export default function RequestDetail({
         </p>
       </div>
 
+      )}
+
       {/* ------------------------------------------------ Menu */}
+      {!noMenu && (
       <div className="mt-6 rounded-card border border-lin bg-fond p-6">
         <h2 className="font-display text-lg text-slate">Le menu choisi</h2>
         <div className="mt-4 flex flex-col gap-5">
@@ -337,6 +302,8 @@ export default function RequestDetail({
           )}
         </div>
       </div>
+
+      )}
 
       {/* ------------------------------------------------ Notes et historique */}
       <div className="mt-6 rounded-card border border-lin bg-fond p-6">
@@ -388,6 +355,7 @@ export default function RequestDetail({
           {notes.length === 0 && !notesError && <li className="text-sm text-muted">Aucune note pour le moment.</li>}
         </ol>
       </div>
+      {sending && <SendConfigurator composition={c} onClose={() => setSending(false)} />}
     </div>
   )
 }
